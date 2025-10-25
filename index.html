@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minecraft 2D</title>
+<style>
+  html, body { margin:0; overflow:hidden; background:#87ceeb; touch-action:none; }
+  canvas { display:block; }
+  #controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+  }
+  button {
+    width:60px; height:60px; border-radius:50%;
+    font-size:24px; border:none;
+    background: rgba(0,0,0,0.5); color:white;
+  }
+  #pauseBtn {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    width:50px; height:50px; font-size:22px;
+    border-radius:50%; background: rgba(0,0,0,0.6);
+  }
+  #pauseMenu {
+    position: fixed;
+    top: 0; left: 0; width:100%; height:100%;
+    background: rgba(0,0,0,0.5);
+    display:none; justify-content:center; align-items:center;
+    flex-direction:column; gap:20px;
+    color:white; font-family: Arial, sans-serif; font-size:24px;
+  }
+  #pauseMenu button {
+    width:220px; height:50px; border-radius:12px;
+    font-size:20px; background:#444; color:white;
+  }
+  #pauseMenu h1 { margin-bottom:30px; }
+  #statusMessage {
+    position: fixed;
+    bottom: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.8);
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 18px;
+    padding: 10px 20px;
+    border-radius: 12px;
+    display: none;
+  }
+  #coordsDisplay {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  font-family: monospace;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 16px;
+  display: none;
+}
+/* 🔒 Empêche la sélection du texte et le menu contextuel sur mobile */
+button, 
+#controls button, 
+#pauseBtn, 
+#pauseMenu button, 
+#craftMenu button, 
+#furnaceMenu button {
+  -webkit-user-select: none; /* iOS/Safari */
+  -moz-user-select: none;    /* Firefox */
+  -ms-user-select: none;     /* Internet Explorer/Edge */
+  user-select: none;         /* Standard */
+  -webkit-touch-callout: none; /* Désactive le menu au maintien sur iOS */
+}
+/* 🎒 Barre d'inventaire en bas de l'écran */
+#hotbar {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1vw; /* espace proportionnel à la largeur de l’écran */
+  background: rgba(0, 0, 0, 0.4);
+  padding: 1vw;
+  border-radius: 2vw;
+  z-index: 20;
+}
+
+.slot {
+  width: 8vw;
+  height: 8vw;
+  background: rgba(255, 255, 255, 0.15);
+  border: 0.4vw solid rgba(255, 255, 255, 0.3);
+  border-radius: 1vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 2.5vw;
+  position: relative;
+}
+
+.slot.selected {
+  border-color: yellow;
+  box-shadow: 0 0 1vw yellow;
+}
+
+.slot-count {
+  position: absolute;
+  bottom: 0.5vw;
+  right: 1vw;
+  font-size: 2vw;
+  color: white;
+}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="coordsDisplay"></div>
+
+<button id="pauseBtn">⏸️</button>
+
+<div id="pauseMenu">
+  <h1>Jeu en pause</h1>
+  <button id="resume">▶️ Continuer</button>
+  <button id="craft">🧩 Craft</button>
+  <button id="save">💾 Sauvegarder</button>
+  <button id="load">📂 Charger</button>
+  <button id="restart">🔁 Recommencer</button>
+  <button id="toggleCoords">📍 Coordonnées</button>
+  <button id="quit">❌ Quitter</button>
+</div>
+
+<!-- 🧩 Menu de craft -->
+<div id="craftMenu" style="display:none;
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:rgba(0,0,0,0.6);color:white;
+justify-content:center;align-items:center;flex-direction:column;
+font-family:Arial,sans-serif;">
+  <h1>🪓 Atelier de craft</h1>
+  <button id="craftPlanks" style="width:240px;height:60px;margin:10px;
+  font-size:20px;border-radius:12px;background:#555;color:white;">
+    🌳 → 🪵 Transformer le bois en planches (x4)
+  </button>
+  <button id="craftFurnace" style="width:240px;height:60px;margin:10px;
+font-size:20px;border-radius:12px;background:#555;color:white;">
+  ⛓️ 8 pierres → 1 four
+</button>
+  <button id="closeCraft" style="width:180px;height:50px;
+  font-size:18px;border-radius:12px;background:#444;color:white;">
+    ⬅️ Retour
+  </button>
+</div>
+
+<!-- 🔥 Menu du four -->
+<div id="furnaceMenu" style="display:none;
+position:fixed;top:0;left:0;width:100%;height:100%;
+background:rgba(0,0,0,0.6);color:white;
+justify-content:center;align-items:center;flex-direction:column;
+font-family:Arial,sans-serif;">
+  <h1>🔥 Four</h1>
+  <p id="furnaceStatus">Déposez du minerai de fer (bloc 8)</p>
+  <button id="smeltIron" style="width:220px;height:60px;margin:10px;
+  font-size:20px;border-radius:12px;background:#666;color:white;">
+    🔥 Chauffer le fer → lingot
+  </button>
+  <button id="closeFurnace" style="width:180px;height:50px;
+  font-size:18px;border-radius:12px;background:#444;color:white;">
+    ⬅️ Retour
+  </button>
+</div>
+
+<div id="statusMessage"></div>
+
+<!-- 🎒 Barre d'inventaire -->
+<div id="hotbar"></div>
+
+<div id="controls">
+  <button id="left">◀️</button>
+  <button id="jump">⤒</button>
+  <button id="right">▶️</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+canvas.width = innerWidth;
+canvas.height = innerHeight;
+
+const TILE_SIZE = 40;
+const WORLD_WIDTH = 200;
+const WORLD_HEIGHT = 60; // 🌍 plus haut qu'avant
+let world = [], baseGround = 20;
+
+function generateWorld() {
+  world = [];
+  for (let y = 0; y < WORLD_HEIGHT; y++) {
+    world[y] = [];
+    for (let x = 0; x < WORLD_WIDTH; x++) {
+      const variation = Math.floor(Math.sin(x / 5) * 2 + Math.random() * 2);
+      const height = baseGround + variation;
+      if (y < height - 4) world[y][x] = 0; // air
+      else if (y === height - 4) world[y][x] = 1; // herbe
+      else if (y < height - 1) world[y][x] = 2; // terre
+      else if (y < WORLD_HEIGHT - 1) world[y][x] = 3; // pierre
+      else world[y][x] = 4; // bedrock
+    }
+  }
+
+  // 🌲 Génération des arbres
+  for (let x = 2; x < WORLD_WIDTH - 2; x++) {
+    if (Math.random() < 0.08) {
+      for (let y = 0; y < WORLD_HEIGHT - 1; y++) {
+        if (world[y][x] === 1 && world[y + 1][x] === 2) {
+          const height = 3 + Math.floor(Math.random() * 3);
+          for (let h = 0; h < height; h++) {
+            if (y - h >= 0) world[y - h][x] = 5;
+          }
+          const topY = y - height;
+          for (let fy = -2; fy <= 2; fy++) {
+            for (let fx = -2; fx <= 2; fx++) {
+              const dist = Math.abs(fx) + Math.abs(fy);
+              const nx = x + fx, ny = topY + fy;
+              if (nx >= 0 && nx < WORLD_WIDTH && ny >= 0 && ny < WORLD_HEIGHT) {
+                if (dist <= 2 && world[ny][nx] === 0) world[ny][nx] = 6;
+              }
+            }
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // 🌌 Génération des grottes
+  for (let i = 0; i < 200; i++) {
+    let cx = Math.floor(Math.random() * WORLD_WIDTH);
+    let cy = Math.floor(baseGround + Math.random() * (WORLD_HEIGHT - baseGround - 5));
+    let r = 3 + Math.random() * 3;
+    for (let y = -r; y <= r; y++) {
+      for (let x = -r; x <= r; x++) {
+        if (x * x + y * y <= r * r) {
+          let gx = cx + x, gy = cy + y;
+          if (world[gy] && world[gy][gx] && world[gy][gx] !== 4) world[gy][gx] = 0;
+        }
+      }
+    }
+  }
+
+  // ⛏️ Génération du minerai de fer
+  for (let i = 0; i < 50; i++) {
+    const x = Math.floor(Math.random() * WORLD_WIDTH);
+    const y = Math.floor(baseGround + 8 + Math.random() * (WORLD_HEIGHT - baseGround - 20));
+    if (world[y] && world[y][x] === 3) { // dans la pierre uniquement
+      const clusterSize = 2 + Math.floor(Math.random() * 3);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          if (Math.random() < 0.6 && world[y + dy] && world[y + dy][x + dx] === 3) {
+            world[y + dy][x + dx] = 8; // minerai de fer
+          }
+        }
+      }
+    }
+  }
+}
+
+generateWorld();
+
+const colors = {
+  0: "#87ceeb", // air
+  1: "#228B22", // herbe
+  2: "#8B4513", // terre
+  3: "#808080", // pierre
+  4: "#2f2f2f", // bedrock
+  5: "#a0522d", // 🌳 tronc
+  6: "#006400", // 🍃 feuillage
+  7: "#deb887", // 🪵 planche de bois
+  8: "#bfb58a", // minerai de fer
+  9: "#d8d8d8", // lingot de fer
+  10: "#555555", // four
+  11: "#c19a6b", // 🪓 pioche en bois
+  12: "#a0a0a0"  // ⛏️ pioche en pierre
+};
+
+// 🖼️ Chargement des textures (si disponibles)
+const textures = {};
+const textureNames = {
+  1: "herbe",
+  2: "terre",
+  3: "pierre",
+  4: "bedrock",
+  5: "bois",
+  6: "feuillage",
+  7: "planches",
+  8: "fer",
+  9: "lingot",
+  10: "four",
+  11: "pioche_bois",
+  12: "pioche_pierre"
+};
+
+// 📦 Fonction de chargement sécurisée
+for (const id in textureNames) {
+  const img = new Image();
+  img.src = `textures/${textureNames[id]}.png`;
+  img.onload = () => console.log(`✅ Texture ${textureNames[id]} chargée`);
+  img.onerror = () => console.warn(`⚠️ Texture ${textureNames[id]} introuvable, couleur utilisée`);
+  textures[id] = img;
+}
+
+let player = { x: WORLD_WIDTH * TILE_SIZE / 2, y: TILE_SIZE * (baseGround - 6), w: 30, h: 40, vx: 0, vy: 0, onGround: false };
+const gravity = 0.8, speed = 4, jumpForce = -12;
+let paused = false;
+let inventory = {};
+let selectedType = null;
+let targetBlock = null;
+
+// 🎒 Inventaire : 9 slots fixes, max 99 par slot
+const HOTBAR_SLOTS = 9;
+const MAX_STACK = 99;
+const hotbar = document.getElementById("hotbar");
+
+function initHotbar() {
+  hotbar.innerHTML = "";
+  for (let i = 0; i < HOTBAR_SLOTS; i++) {
+    const slot = document.createElement("div");
+    slot.className = "slot";
+    slot.dataset.index = i;
+    slot.addEventListener("click", () => selectSlot(i));
+    hotbar.appendChild(slot);
+  }
+}
+
+function updateHotbar() {
+  const keys = Object.keys(inventory);
+  const slots = hotbar.querySelectorAll(".slot");
+  for (let i = 0; i < HOTBAR_SLOTS; i++) {
+    const slot = slots[i];
+    const type = keys[i];
+    slot.innerHTML = "";
+
+    if (type) {
+      // carré de couleur du bloc
+      const colorBox = document.createElement("div");
+      colorBox.style.width = "70%";
+      colorBox.style.height = "70%";
+      colorBox.style.borderRadius = "3px";
+      colorBox.style.background = colors[type];
+      colorBox.style.boxShadow = "0 0 3px rgba(0,0,0,0.5)";      slot.appendChild(colorBox);
+
+      // nombre d'items
+      const count = document.createElement("div");
+      count.className = "slot-count";
+      count.textContent = Math.min(inventory[type], MAX_STACK);
+      slot.appendChild(count);
+
+      // surbrillance si sélectionné
+      if (parseInt(type) === selectedType) slot.classList.add("selected");
+      else slot.classList.remove("selected");
+    } else {
+      slot.classList.remove("selected");
+    }
+  }
+}
+
+function selectSlot(index) {
+  const keys = Object.keys(inventory);
+  const type = keys[index];
+  if (type) {
+    selectedType = parseInt(type);
+    showStatus("Bloc sélectionné changé 🧱", "yellow");
+    updateHotbar();
+  }
+}
+
+// ⏰ Système jour/nuit
+let time = 0;               // secondes écoulées
+const DAY_DURATION = 1200;  // durée complète du cycle jour/nuit en secondes (20 min)
+
+// 🌟 Gestion des particules et sons
+let particles = [];
+const sounds = {
+  1: new Audio("https://cdn.jsdelivr.net/gh/gleitz/minecraft-sounds/blocks/grass1.ogg"),
+  2: new Audio("https://cdn.jsdelivr.net/gh/gleitz/minecraft-sounds/blocks/dig_gravel1.ogg"),
+  3: new Audio("https://cdn.jsdelivr.net/gh/gleitz/minecraft-sounds/blocks/stone1.ogg"),
+  5: new Audio("https://cdn.jsdelivr.net/gh/gleitz/minecraft-sounds/blocks/wood1.ogg"),
+  6: new Audio("https://cdn.jsdelivr.net/gh/gleitz/minecraft-sounds/blocks/grass1.ogg")
+};
+// ✅ Débloquer l'audio après la première interaction
+let audioUnlocked = false;
+function unlockAudio() {
+  if (!audioUnlocked) {
+    for (const s in sounds) {
+      sounds[s].play().catch(()=>{}); // essaie de lancer le son
+      sounds[s].pause();
+      sounds[s].currentTime = 0;
+    }
+    audioUnlocked = true;
+    console.log("Audio activé ✅");
+  }
+}
+window.addEventListener("click", unlockAudio);
+window.addEventListener("touchstart", unlockAudio);
+function spawnParticles(x, y, color) {
+  for (let i = 0; i < 10; i++) {
+    particles.push({
+      x: x + TILE_SIZE / 2,
+      y: y + TILE_SIZE / 2,
+      vx: (Math.random() - 0.5) * 6,
+      vy: (Math.random() - 1.2) * 5,
+      life: 30 + Math.random() * 20,
+      color
+    });
+  }
+}
+
+function showStatus(msg, color = "white") {
+  const box = document.getElementById("statusMessage");
+  box.textContent = msg;
+  box.style.color = color;
+  box.style.display = "block";
+  setTimeout(() => { box.style.display = "none"; }, 3000);
+}
+
+function isAccessible(x, y) {
+  if (!world[y] || !world[y][x]) return false;
+  if (world[y]
+  [x] === 4) return false; // bedrock non cassable
+  const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  for (let [dx, dy] of dirs) {
+    const nx = x + dx, ny = y + dy;
+    if (!world[ny] || !world[ny][nx] || world[ny][nx] === 0) return true;
+  }
+  return false;
+}
+
+function canPlace(x, y) {
+  if (!world[y] || world[y][x] !== 0) return false;
+  const dirs = [[0, -1], [0, 1], [-1, 0], [1, 0]];
+  for (let [dx, dy] of dirs) {
+    const nx = x + dx, ny = y + dy;
+    if (world[ny] && world[ny][nx] && world[ny][nx] !== 0) return true;
+  }
+  return false;
+}
+
+// 🖐️ Tap mobile
+let lastTap = 0;
+canvas.addEventListener("touchend", (e) => {
+  const currentTime = new Date().getTime();
+  const tapLength = currentTime - lastTap;
+  const touch = e.changedTouches[0];
+  const camX = player.x - canvas.width / 2;
+  const camY = player.y - canvas.height / 2;
+  const tx = Math.floor((touch.clientX + camX) / TILE_SIZE);
+  const ty = Math.floor((touch.clientY + camY) / TILE_SIZE);
+  targetBlock = { x: tx, y: ty };
+
+if (tapLength < 300) {
+  if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
+    const type = world[ty][tx];
+    if (type !== 4) { // bedrock incassable
+
+      // 🔒 Vérification de la pioche possédée
+      const hasWoodPickaxe = inventory[11] > 0;  // pioche en bois
+      const hasStonePickaxe = inventory[12] > 0; // pioche en pierre
+
+      // 🪨 Pierre : nécessite pioche en bois
+      if (type === 3 && !hasWoodPickaxe) {
+        showStatus("🪓 Il faut une pioche en bois pour casser la pierre !", "orange");
+        return;
+      }
+
+      // ⛏️ Minerai de fer : nécessite pioche en pierre
+      if (type === 8 && !hasStonePickaxe) {
+        showStatus("⛏️ Il faut une pioche en pierre pour miner le fer !", "orange");
+        return;
+      }
+
+      // ✅ Casse du bloc
+      inventory[type] = (inventory[type] || 0) + 1;
+      if (!selectedType) selectedType = type;
+      world[ty][tx] = 0;
+
+      // 💥 Effets visuels et sonores
+      spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
+      if (sounds[type]) {
+        const s = sounds[type].cloneNode();
+        s.volume = 0.3;
+        s.play().catch(()=>{});
+      }
+    }
+  }
+}
+ else {
+    if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
+      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
+      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
+      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
+        world[ty][tx] = selectedType;
+        inventory[selectedType]--;
+        if (inventory[selectedType] === 0) {
+          delete inventory[selectedType];
+          selectedType = Object.keys(inventory)[0] || null;
+        }
+      }
+    }
+  }
+  lastTap = currentTime;
+});
+
+function getSkyColor() {
+  const t = (time % DAY_DURATION) / DAY_DURATION; 
+  const factor = 0.5 * (1 + Math.sin(2 * Math.PI * t - Math.PI / 2));
+  const day = { r: 135, g: 206, b: 235 }; // #87ceeb
+  const night = { r: 10, g: 10, b: 42 };  // #0a0a2a
+  const r = Math.floor(day.r * factor + night.r * (1 - factor));
+  const g = Math.floor(day.g * factor + night.g * (1 - factor));
+  const b = Math.floor(day.b * factor + night.b * (1 - factor));
+  return `rgb(${r},${g},${b})`;
+}
+
+// 🔄 Update / Draw
+function update() {
+  // 🔄 Avancement du cycle jour/nuit
+time += 1 / 60; // 1/60 secondes par frame (~60 FPS)
+  if (paused) return;
+  player.vy += gravity;
+  let newX = player.x + player.vx, newY = player.y + player.vy;
+  player.onGround = false;
+
+  if (player.vx !== 0) {
+    const dir = player.vx > 0 ? 1 : -1;
+    const sideX = dir > 0 ? newX + player.w : newX;
+    const topY = Math.floor(player.y / TILE_SIZE);
+    const bottomY = Math.floor((player.y + player.h - 1) / TILE_SIZE);
+    for (let y = topY; y <= bottomY; y++) {
+      const tx = Math.floor(sideX / TILE_SIZE);
+      if (world[y] && world[y][tx] && world[y][tx] !== 0) {
+        newX = dir > 0 ? tx * TILE_SIZE - player.w - 0.01 : (tx + 1) * TILE_SIZE + 0.01;
+        player.vx = 0; break;
+      }
+    }
+  }
+  if (player.vy !== 0) {
+    const dir = player.vy > 0 ? 1 : -1;
+    const footY = dir > 0 ? newY + player.h : newY;
+    const leftX = Math.floor(newX / TILE_SIZE);
+    const rightX = Math.floor((newX + player.w - 1) / TILE_SIZE);
+    for (let x = leftX; x <= rightX; x++) {
+      const ty = Math.floor(footY / TILE_SIZE);
+      if (world[ty] && world[ty][x] && world[ty][x] !== 0) {
+        if (dir > 0) { newY = ty * TILE_SIZE - player.h - 0.01; player.onGround = true; }
+        else newY = (ty + 1) * TILE_SIZE + 0.01;
+        player.vy = 0; break;
+      }
+    }
+  }
+  player.x = newX; player.y = newY;
+  // 🎇 Update des particules
+particles = particles.filter(p => p.life > 0);
+for (let p of particles) {
+  p.x += p.vx;
+  p.y += p.vy;
+  p.vy += 0.3;
+  p.life--;
+}
+}
+
+function draw() {
+  ctx.fillStyle = getSkyColor();
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const camX = player.x - canvas.width / 2;
+  const camY = player.y - canvas.height / 2;
+  const startX = Math.floor(camX / TILE_SIZE);
+  const endX = Math.ceil((camX + canvas.width) / TILE_SIZE);
+  const startY = Math.floor(camY / TILE_SIZE);
+  const endY = Math.ceil((camY + canvas.height) / TILE_SIZE);
+
+  // 🧱 Rendu des blocs
+  for (let y = startY; y < endY; y++) {
+    for (let x = startX; x < endX; x++) {
+      if (world[y] && world[y][x] !== 0) {
+        let type = world[y][x];
+
+        const tex = textures[type];
+if (tex && tex.complete && tex.naturalWidth > 0) {
+  // 🧱 Affiche l'image si elle est chargée
+  ctx.drawImage(
+    tex,
+    x * TILE_SIZE - camX,
+    y * TILE_SIZE - camY,
+    TILE_SIZE,
+    TILE_SIZE
+  );
+} else {
+  // 🎨 Sinon, couleur de secours
+  ctx.fillStyle = colors[type];
+  ctx.fillRect(
+    x * TILE_SIZE - camX - 0.25,
+    y * TILE_SIZE - camY - 0.25,
+    TILE_SIZE + 0.5,
+    TILE_SIZE + 0.5
+  );
+}
+      }
+    }
+  }
+
+  // 💨 Particules
+  for (let p of particles) {
+    ctx.fillStyle = p.color;
+    ctx.globalAlpha = Math.max(p.life / 50, 0.2);
+    ctx.fillRect(p.x - camX, p.y - camY, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+
+  // 🧍 Joueur
+  ctx.fillStyle = "red";
+  ctx.fillRect(player.x - camX, player.y - camY, player.w, player.h);
+
+  // 🎯 Ciblage de bloc
+  if (targetBlock) {
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(
+      targetBlock.x * TILE_SIZE - camX,
+      targetBlock.y * TILE_SIZE - camY,
+      TILE_SIZE,
+      TILE_SIZE
+    );
+  }
+
+  // 📍 Coordonnées du joueur (si activées)
+  if (showCoords) {
+    coordsDisplay.textContent = `X: ${Math.floor(player.x / TILE_SIZE)} | Y: ${Math.floor(player.y / TILE_SIZE)}`;
+  }
+
+  // 🎒 Met à jour la hotbar (inventaire visuel du bas)
+  updateHotbar();
+}
+
+// 🎮 Contrôles
+document.addEventListener("keydown", e => {
+  if (paused) return;
+  if (e.key === "ArrowLeft" || e.key === "q") player.vx = -speed;
+  if (e.key === "ArrowRight" || e.key === "d") player.vx = speed;
+  if ((e.key === "ArrowUp" || e.key === " " || e.key === "z") && player.onGround) {
+    player.vy = jumpForce; player.onGround = false;
+  }
+});
+document.addEventListener("keyup", e => {
+  if (["ArrowLeft", "ArrowRight", "q", "d"].includes(e.key)) player.vx = 0;
+});
+
+// 📱 Touches mobiles
+document.getElementById("left").addEventListener("touchstart", () => { if (!paused) player.vx = -speed; });
+document.getElementById("left").addEventListener("touchend", () => player.vx = 0);
+document.getElementById("right").addEventListener("touchstart", () => { if (!paused) player.vx = speed; });
+document.getElementById("right").addEventListener("touchend", () => player.vx = 0);
+document.getElementById("jump").addEventListener("touchstart", () => { if (!paused && player.onGround) player.vy = jumpForce; });
+
+// 🎛️ Menu pause
+const pauseBtn = document.getElementById("pauseBtn");
+const pauseMenu = document.getElementById("pauseMenu");
+const resumeBtn = document.getElementById("resume");
+const restartBtn = document.getElementById("restart");
+const quitBtn = document.getElementById("quit");
+const saveBtn = document.getElementById("save");
+const loadBtn = document.getElementById("load");
+const toggleCoordsBtn = document.getElementById("toggleCoords");
+const coordsDisplay = document.getElementById("coordsDisplay");
+let showCoords = false;
+// 🧩 Système de craft
+const craftBtn = document.getElementById("craft");
+const craftMenu = document.getElementById("craftMenu");
+const craftPlanksBtn = document.getElementById("craftPlanks");
+const closeCraftBtn = document.getElementById("closeCraft");
+
+// ouvrir le menu de craft
+craftBtn.onclick = () => {
+  pauseMenu.style.display = "none";
+  craftMenu.style.display = "flex";
+};
+
+// fermer le menu de craft
+closeCraftBtn.onclick = () => {
+  craftMenu.style.display = "none";
+  pauseMenu.style.display = "flex";
+};
+
+const craftFurnaceBtn = document.getElementById("craftFurnace");
+craftFurnaceBtn.onclick = () => {
+  const STONE = 3;
+  const FURNACE = 10;
+
+  if (inventory[STONE] >= 8) {
+    inventory[STONE] -= 8;
+    if (inventory[STONE] === 0) delete inventory[STONE];
+    inventory[FURNACE] = (inventory[FURNACE] || 0) + 1;
+    showStatus("🪨 8 pierres → 1 four ⛓️", "lightgreen");
+  } else {
+    showStatus("Pas assez de pierre (8 nécessaires)", "orange");
+  }
+};
+
+// 🪓 Craft de la pioche en bois
+const craftWoodPickaxeBtn = document.createElement("button");
+craftWoodPickaxeBtn.textContent = "🪓 2 bois + 3 planches → 1 pioche en bois";
+craftWoodPickaxeBtn.style.cssText = "width:260px;height:60px;margin:10px;font-size:20px;border-radius:12px;background:#555;color:white;";
+craftMenu.insertBefore(craftWoodPickaxeBtn, closeCraftBtn);
+
+craftWoodPickaxeBtn.onclick = () => {
+  const WOOD = 5;
+  const PLANK = 7;
+  const WOOD_PICKAXE = 11;
+  if ((inventory[WOOD] || 0) >= 2 && (inventory[PLANK] || 0) >= 3) {
+    inventory[WOOD] -= 2;
+    inventory[PLANK] -= 3;
+    inventory[WOOD_PICKAXE] = (inventory[WOOD_PICKAXE] || 0) + 1;
+    showStatus("🪓 Pioche en bois fabriquée !", "lightgreen");
+  } else {
+    showStatus("Pas assez de matériaux 🪵", "orange");
+  }
+};
+
+// ⛏️ Craft de la pioche en pierre
+const craftStonePickaxeBtn = document.createElement("button");
+craftStonePickaxeBtn.textContent = "⛏️ 2 bâtons (bois) + 3 pierres → 1 pioche en pierre";
+craftStonePickaxeBtn.style.cssText = "width:280px;height:60px;margin:10px;font-size:20px;border-radius:12px;background:#555;color:white;";
+craftMenu.insertBefore(craftStonePickaxeBtn, closeCraftBtn);
+
+craftStonePickaxeBtn.onclick = () => {
+  const WOOD = 5;
+  const STONE = 3;
+  const STONE_PICKAXE = 12;
+  if ((inventory[WOOD] || 0) >= 2 && (inventory[STONE] || 0) >= 3) {
+    inventory[WOOD] -= 2;
+    inventory[STONE] -= 3;
+    inventory[STONE_PICKAXE] = (inventory[STONE_PICKAXE] || 0) + 1;
+    showStatus("⛏️ Pioche en pierre fabriquée !", "lightgreen");
+  } else {
+    showStatus("Pas assez de ressources 🪨", "orange");
+  }
+};
+
+// 🔥 Four
+const furnaceMenu = document.getElementById("furnaceMenu");
+const smeltIronBtn = document.getElementById("smeltIron");
+const closeFurnaceBtn = document.getElementById("closeFurnace");
+const furnaceStatus = document.getElementById("furnaceStatus");
+
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const camX = player.x - canvas.width / 2;
+  const camY = player.y - canvas.height / 2;
+
+  const tx = Math.floor((mouseX + camX) / TILE_SIZE);
+  const ty = Math.floor((mouseY + camY) / TILE_SIZE);
+
+  // Ouvrir le four uniquement si on clique exactement sur un bloc four
+  if (world[ty] && world[ty][tx] === 10) { // 10 = four
+    paused = true;
+    furnaceMenu.style.display = "flex";
+  }
+});
+
+// fermer le menu du four
+closeFurnaceBtn.onclick = () => {
+  furnaceMenu.style.display = "none";
+  paused = false;
+};
+
+smeltIronBtn.onclick = () => {
+  const IRON_ORE = 8;
+  const IRON_INGOT = 9;
+  const WOOD = 5; // bois nécessaire pour chauffer
+
+  if (!inventory[IRON_ORE] || inventory[IRON_ORE] === 0) {
+    furnaceStatus.textContent = "❌ Aucun minerai de fer dans l’inventaire !";
+    furnaceStatus.style.color = "orange";
+    return;
+  }
+
+  if (!inventory[WOOD] || inventory[WOOD] === 0) {
+    furnaceStatus.textContent = "❌ Il vous faut du bois pour chauffer ! 🌲";
+    furnaceStatus.style.color = "orange";
+    return;
+  }
+
+  // Retirer 1 minerai et 1 bois
+  inventory[IRON_ORE]--;
+  if (inventory[IRON_ORE] === 0) delete inventory[IRON_ORE];
+
+  inventory[WOOD]--;
+  if (inventory[WOOD] === 0) delete inventory[WOOD];
+
+  // Ajouter un lingot
+  inventory[IRON_INGOT] = (inventory[IRON_INGOT] || 0) + 1;
+
+  furnaceStatus.textContent = "🔥 Le fer fond... obtenu : lingot de fer !";
+  furnaceStatus.style.color = "lightgreen";
+  selectedType = IRON_INGOT;
+  showStatus("1 minerai + 1 bois → 1 lingot de fer 🔥", "lightgreen");
+};
+
+// 🌳 Transformer 1 bois → 4 planches
+craftPlanksBtn.onclick = () => {
+  const WOOD = 5;
+  const PLANK = 7;
+
+  if (inventory[WOOD] && inventory[WOOD] > 0) {
+    inventory[WOOD]--; // enlève seulement 1 bois
+    if (inventory[WOOD] === 0) delete inventory[WOOD];
+
+    inventory[PLANK] = (inventory[PLANK] || 0) + 4; // ajoute 4 planches
+    selectedType = PLANK;
+    showStatus("🌳 1 bois → 4 planches 🪵", "lightgreen");
+  } else {
+    showStatus("Aucun bois à transformer 🌲", "orange");
+  }
+};
+
+
+toggleCoordsBtn.onclick = () => {
+  showCoords = !showCoords;
+  coordsDisplay.style.display = showCoords ? "block" : "none";
+  toggleCoordsBtn.textContent = showCoords ? "📍 Masquer coordonnées" : "📍 Coordonnées";
+};
+
+pauseBtn.onclick = () => { paused = !paused; pauseMenu.style.display = paused ? "flex" : "none"; };
+resumeBtn.onclick = () => { paused = false; pauseMenu.style.display = "none"; };
+restartBtn.onclick = () => { location.reload(); };
+quitBtn.onclick = () => { window.location.href = "about:blank"; };
+
+// 💾 Sauvegarde
+saveBtn.addEventListener("click", () => {
+  try {
+    const saveData = { player, world, inventory, selectedType, baseGround };
+    const json = JSON.stringify(saveData);
+    const blob = new Blob([json], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "minecraft2d_save.json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+    showStatus("Sauvegarde réussie ✅", "lightgreen");
+  } catch (err) { showStatus("Erreur : " + err.message, "red"); }
+});
+
+// 📂 Chargement
+loadBtn.addEventListener("click", () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".json";
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) { showStatus("Aucun fichier sélectionné", "orange"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data.world || !data.player) throw new Error("Fichier invalide");
+        world = data.world;
+        player = data.player;
+        inventory = data.inventory || {};
+        selectedType = data.selectedType || null;
+        baseGround = data.baseGround || 20;
+        showStatus("Monde chargé ✅", "lightgreen");
+      } catch (err) {
+        showStatus("Erreur : " + err.message, "red");
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+});
+// 🧱 Sélection de bloc dans l'inventaire par clic
+canvas.addEventListener("click", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  // Coordonnées de base de l'inventaire
+  const startX = 20;
+  const startY = 20;
+  const slotSize = 40;
+  const spacing = 50;
+
+  let i = 0;
+  for (const type in inventory) {
+    const x = startX + i * spacing;
+    const y = startY;
+    if (
+      mouseX >= x && mouseX <= x + slotSize &&
+      mouseY >= y && mouseY <= y + slotSize
+    ) {
+      selectedType = parseInt(type);
+      showStatus("Bloc sélectionné changé 🧱", "yellow");
+      break;
+    }
+    i++;
+  }
+});
+// 🔄 Boucle principale du jeu
+function loop() {
+  update();     // met à jour la physique du jeu
+  draw();       // dessine le monde et la hotbar
+  requestAnimationFrame(loop);
+}
+
+// ⚙️ Initialisation au démarrage du jeu
+initHotbar();   // créer les 9 slots (une seule fois)
+updateHotbar(); // affichage initial
+loop();         // démarrer la boucle principale
+</script>
+</body>
+</html>
