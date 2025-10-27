@@ -164,6 +164,53 @@ button,
   <button id="quit">❌ Quitter</button>
 </div>
 
+  <button id="chatBtn" style="
+  position: fixed;
+  top: 80px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  font-size: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  display: none; /* 👈 masqué par défaut */
+">💬</button>
+
+<!-- 💬 Zone du chat -->
+<div id="chatBox" style="
+  position: fixed;
+  bottom: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  background: rgba(0,0,0,0.7);
+  color: white;
+  font-family: Arial, sans-serif;
+  border-radius: 12px;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 50;
+">
+  <div id="chatMessages" style="
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    font-size: 16px;
+  "></div>
+  <div style="display: flex;">
+    <input id="chatInput" type="text" placeholder="Écris un message..."
+      style="flex: 1; padding: 10px; font-size: 16px; border: none; border-radius: 0 0 0 12px;">
+    <button id="sendChat" style="
+      width: 80px; border: none; background: #4caf50; color: white;
+      font-size: 16px; border-radius: 0 0 12px 0;
+    ">Envoyer</button>
+  </div>
+</div>
+
+
 <!-- 🧩 Menu de craft -->
 <div id="craftMenu" style="display:none;
 position:fixed;top:0;left:0;width:100%;height:100%;
@@ -946,6 +993,71 @@ function sendPlaceBlock(x, y, blockType) {
     }));
   }
 }
+
+  // 💬 --- CHAT MULTIJOUEUR ---
+const chatBtn = document.getElementById("chatBtn");
+const chatBox = document.getElementById("chatBox");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChat = document.getElementById("sendChat");
+
+function toggleChat() {
+  const visible = chatBox.style.display === "flex";
+  chatBox.style.display = visible ? "none" : "flex";
+  if (!visible) chatInput.focus();
+}
+
+chatBtn.onclick = toggleChat;
+
+// Envoie du message
+sendChat.onclick = () => {
+  const msg = chatInput.value.trim();
+  if (msg && multiplayerActive && socket?.readyState === 1) {
+    socket.send(JSON.stringify({ type: "chat", message: msg }));
+    chatInput.value = "";
+  }
+};
+
+// Entrée clavier = envoi
+chatInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") sendChat.click();
+});
+
+// Réception de messages depuis le serveur
+function handleChatMessage(data) {
+  const div = document.createElement("div");
+  const prefix = (data.id === playerId) ? "🧍‍♂️ Toi" : `👤 ${data.id}`;
+  div.textContent = `${prefix}: ${data.message}`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+// Active le chat seulement en multijoueur
+function showChatButton() {
+  chatBtn.style.display = multiplayerActive ? "block" : "none";
+}
+
+// 👂 Intègre à la gestion WebSocket existante
+// Ajoute après socket.onmessage = (event) => { ... }
+if (socket) {
+  const oldHandler = socket.onmessage;
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "chat") handleChatMessage(data);
+    else if (oldHandler) oldHandler(event);
+  };
+}
+
+// Montre le bouton chat quand on se connecte
+const oldSocketOpen = socket?.onopen;
+if (socket) {
+  socket.onopen = () => {
+    multiplayerActive = true;
+    showChatButton();
+    if (oldSocketOpen) oldSocketOpen();
+  };
+}
+
 
 
 // 🎯 Sélection rapide avec touches 1 à 9 — compatible AZERTY / QWERTY / Numpad
