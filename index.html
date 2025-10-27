@@ -843,14 +843,37 @@ function sendPlaceBlock(x, y, blockType) {
 }
 
 
-// 🎯 Sélection rapide avec touches 1 à 9
-document.addEventListener("keydown", e => {
-  const num = parseInt(e.key);
-  if (!isNaN(num) && num >= 1 && num <= 9) {
-    const index = num - 1; // 1 → slot 0, 9 → slot 8
-    selectSlot(index);
+// Sélection rapide 1-9 — compatible AZERTY / QWERTY / Numpad
+document.addEventListener("keydown", (e) => {
+  // Ignore si on tape dans un champ de saisie
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+
+  // Ignore répétitions maintenues
+  if (e.repeat) return;
+
+  let index = null;
+
+  // 1) Utilise e.code (indépendant de la disposition) : 'Digit1'..'Digit9'
+  if (/^Digit[1-9]$/.test(e.code)) {
+    index = parseInt(e.code.slice(5), 10) - 1;
+  }
+  // 2) Pavé numérique
+  else if (/^Numpad[1-9]$/.test(e.code)) {
+    index = parseInt(e.code.slice(6), 10) - 1;
+  }
+  // 3) Fallback sur e.key (si e.code indisponible)
+  else if (/^[1-9]$/.test(e.key)) {
+    index = parseInt(e.key, 10) - 1;
+  }
+
+  if (index !== null) {
+    // sécurité : limite à la taille des slots
+    const slotCount = HOTBAR_SLOTS || 9;
+    if (index >= 0 && index < slotCount) selectSlot(index);
   }
 });
+
 
 // 📱 Touches mobiles
 document.getElementById("left").addEventListener("touchstart", () => { if (!paused) player.vx = -speed; });
