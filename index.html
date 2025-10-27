@@ -152,19 +152,6 @@ button,
 
 <button id="pauseBtn">⏸️</button>
 
-  <button id="chatBtn" style="
-  position: fixed;
-  top: 75px;
-  right: 15px;
-  width:50px;
-  height:50px;
-  font-size:22px;
-  border-radius:50%;
-  background: rgba(0,0,0,0.6);
-  display:none;
-">💬</button>
-
-
 <div id="pauseMenu">
   <h1>Jeu en pause</h1>
   <button id="resume">▶️ Continuer</button>
@@ -226,38 +213,6 @@ font-family:Arial,sans-serif;">
   <button id="jump">⤒</button>
   <button id="right">▶️</button>
 </div>
-
-  <div id="chatBox" style="
-  position: fixed;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80%;
-  max-width: 600px;
-  background: rgba(0,0,0,0.6);
-  color: white;
-  font-family: Arial, sans-serif;
-  padding: 10px;
-  border-radius: 12px;
-  display: none;
-  flex-direction: column;
-  z-index: 50;
-">
-  <div id="chatMessages" style="
-    max-height: 200px;
-    overflow-y: auto;
-    margin-bottom: 10px;
-    font-size: 16px;
-  "></div>
-  <div style="display: flex; gap: 10px;">
-    <input id="chatInput" type="text" placeholder="Écrire un message..." 
-      style="flex:1; padding:8px; border-radius:8px; border:none; outline:none; font-size:16px;">
-    <button id="chatSend" style="
-      padding:8px 16px; border:none; border-radius:8px;
-      background:#4caf50; color:white; font-size:16px;">Envoyer</button>
-  </div>
-</div>
-
 
 <script>
 const canvas = document.getElementById("game");
@@ -414,6 +369,53 @@ startSolo.onclick = () => {
   showGameUI();
   showStatus("Mode Solo activé 🎮", "lightgreen");
 };
+
+startMulti.onclick = () => {
+  startMenu.style.display = "none";
+  paused = false;
+  showGameUI();
+  showStatus("Connexion multijoueur...", "lightblue");
+
+  // Lance la procédure multijoueur existante
+  const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
+  if (!url) {
+    showStatus("Mode solo activé par défaut 🎮", "orange");
+    return;
+  }
+
+  try {
+    socket = new WebSocket(url);
+    socket.onopen = () => {
+      multiplayerActive = true;
+      showStatus("✅ Connecté au multijoueur !");
+    };
+    socket.onerror = () => {
+      showStatus("❌ Erreur de connexion au serveur", "red");
+    };
+    socket.onclose = () => {
+      multiplayerActive = false;
+      showStatus("🔌 Déconnecté du serveur", "orange");
+    };
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "init") {
+        playerId = data.id;
+        allPlayers = data.players;
+        if (data.world) world = data.world;
+      }
+      if (data.type === "updatePlayers") allPlayers = data.players;
+      if (data.type === "blockChanged") {
+        const { x, y, action, blockType } = data;
+        if (action === "break") world[y][x] = 0;
+        if (action === "place") world[y][x] = blockType;
+      }
+    };
+  } catch (err) {
+    showStatus("❌ Adresse invalide", "red");
+  }
+};
+
+
   
 function initHotbar() {
   hotbar.innerHTML = "";
@@ -846,11 +848,6 @@ let playerId = null;
 let allPlayers = {};
 
 const multiplayerBtn = document.getElementById("multiplayer");
-const chatBtn = document.getElementById("chatBtn");
-const chatBox = document.getElementById("chatBox");
-const chatInput = document.getElementById("chatInput");
-const chatSend = document.getElementById("chatSend");
-const chatMessages = document.getElementById("chatMessages");
 
 multiplayerBtn.onclick = () => {
   if (multiplayerActive) {
@@ -873,11 +870,6 @@ multiplayerBtn.onclick = () => {
   socket.onopen = () => {
     multiplayerActive = true;
     showStatus("✅ Connecté au multijoueur !");
-
-    // 💬 Affiche le bouton de chat et désactive la sauvegarde/chargement
-    chatBtn.style.display = "block";
-    saveBtn.style.display = "none";
-    loadBtn.style.display = "none";
   };
 
   socket.onerror = () => {
@@ -887,12 +879,6 @@ multiplayerBtn.onclick = () => {
   socket.onclose = () => {
     showStatus("🔌 Déconnecté du serveur", "orange");
     multiplayerActive = false;
-
-    // 🔕 Cache le chat et réactive la sauvegarde/chargement
-    chatBtn.style.display = "none";
-    chatBox.style.display = "none";
-    saveBtn.style.display = "block";
-    loadBtn.style.display = "block";
   };
 
   socket.onmessage = (event) => {
@@ -923,11 +909,6 @@ multiplayerBtn.onclick = () => {
     // 🌍 Le serveur renvoie le monde complet (optionnel)
     if (data.type === "world") {
       world = data.world;
-    }
-
-    // 💬 Message de chat reçu
-    if (data.type === "chat") {
-      addChatMessage(data.id, data.message);
     }
   };
 };
@@ -965,17 +946,6 @@ function sendPlaceBlock(x, y, blockType) {
     }));
   }
 }
-
-// 💬 Gestion du chat côté client
-chatBtn.onclick = () => {
-  chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
-  if (chatBox.style.display === "flex") chatInput.focus();
-};
-
-chatSend.onclick = sendChat;
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChat();
-});
 
 
 // 🎯 Sélection rapide avec touches 1 à 9 — compatible AZERTY / QWERTY / Numpad
@@ -1041,6 +1011,7 @@ closeCraftBtn.onclick = () => {
   craftMenu.style.display = "none";
   pauseMenu.style.display = "flex";
 };
+
 
 const craftFurnaceBtn = document.getElementById("craftFurnace");
 craftFurnaceBtn.onclick = () => {
