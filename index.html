@@ -164,7 +164,8 @@ button,
   <button id="quit">❌ Quitter</button>
 </div>
 
-  <button id="chatBtn" style="
+<!-- 💬 Bouton Chat -->
+<button id="chatBtn" style="
   position: fixed;
   top: 80px;
   right: 15px;
@@ -174,10 +175,10 @@ button,
   border-radius: 50%;
   background: rgba(0,0,0,0.6);
   color: white;
-  display: none; /* 👈 masqué par défaut */
+  z-index: 20;
 ">💬</button>
 
-<!-- 💬 Zone du chat -->
+<!-- 💬 Fenêtre de chat -->
 <div id="chatBox" style="
   position: fixed;
   bottom: 100px;
@@ -185,10 +186,10 @@ button,
   transform: translateX(-50%);
   width: 90%;
   max-width: 600px;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.8);
   color: white;
-  font-family: Arial, sans-serif;
   border-radius: 12px;
+  font-family: Arial, sans-serif;
   display: none;
   flex-direction: column;
   overflow: hidden;
@@ -202,14 +203,16 @@ button,
   "></div>
   <div style="display: flex;">
     <input id="chatInput" type="text" placeholder="Écris un message..."
-      style="flex: 1; padding: 10px; font-size: 16px; border: none; border-radius: 0 0 0 12px;">
+      style="flex: 1; padding: 10px; font-size: 16px; border: none;">
     <button id="sendChat" style="
-      width: 80px; border: none; background: #4caf50; color: white;
-      font-size: 16px; border-radius: 0 0 12px 0;
+      width: 80px;
+      border: none;
+      background: #4caf50;
+      color: white;
+      font-size: 16px;
     ">Envoyer</button>
   </div>
 </div>
-
 
 <!-- 🧩 Menu de craft -->
 <div id="craftMenu" style="display:none;
