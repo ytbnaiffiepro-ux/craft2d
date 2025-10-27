@@ -541,11 +541,19 @@ function canPlace(x, y) {
   return false;
 }
 
-// 🖐️ Tap mobile
+// 🖐️ --- CONTRÔLES TACTILES (MOBILE) ---
 let lastTap = 0;
+let tapTimeout = null;
+let touchStartTime = 0;
+
+canvas.addEventListener("touchstart", () => {
+  touchStartTime = Date.now();
+});
+
 canvas.addEventListener("touchend", (e) => {
-  const currentTime = new Date().getTime();
-  const tapLength = currentTime - lastTap;
+  const now = Date.now();
+  const tapDuration = now - touchStartTime;  // durée du tap
+  const tapInterval = now - lastTap;
   const touch = e.changedTouches[0];
   const camX = player.x - canvas.width / 2;
   const camY = player.y - canvas.height / 2;
@@ -553,73 +561,32 @@ canvas.addEventListener("touchend", (e) => {
   const ty = Math.floor((touch.clientY + camY) / TILE_SIZE);
   targetBlock = { x: tx, y: ty };
 
-  // 👊 Tap court = casser un bloc
-  if (tapLength < 300) {
-    if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
-      const type = world[ty][tx];
-      if (type !== 4) { // bedrock incassable
-        const hasWoodPickaxe = inventory[11] > 0;
-        const hasStonePickaxe = inventory[12] > 0;
-
-        if (type === 3 && !hasWoodPickaxe) {
-          showStatus("🪓 Il faut une pioche en bois pour casser la pierre !", "orange");
-          return;
-        }
-
-        if (type === 8 && !hasStonePickaxe) {
-          showStatus("⛏️ Il faut une pioche en pierre pour miner le fer !", "orange");
-          return;
-        }
-
-        // ✅ Casse du bloc
-        inventory[type] = (inventory[type] || 0) + 1;
-        if (!selectedType) selectedType = type;
-
-        // 🧠 👉 On ne modifie plus localement en multijoueur :
-        if (multiplayerActive) {
-          sendBreakBlock(tx, ty);
-        } else {
-          world[ty][tx] = 0; // solo seulement
-        }
-
-        spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
-        if (sounds[type]) {
-          const s = sounds[type].cloneNode();
-          s.volume = 0.3;
-          s.play().catch(() => {});
-        }
-      }
-    }
+  // 👆 Tap long (>350 ms) → poser un bloc
+  if (tapDuration > 350) {
+    placeBlock(tx, ty);
   }
-
-  // 👆 Tap long = poser un bloc
+  // 👆 Double tap → casser
+  else if (tapInterval < 300 && tapTimeout) {
+    clearTimeout(tapTimeout);
+    tapTimeout = null;
+    mineBlock(tx, ty);
+  }
+  // 👆 Tap simple → sélectionner
   else {
-    if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
-      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
-      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
-      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
-
-        // 🧱 👉 On ne place pas localement en multi
-        if (multiplayerActive) {
-          sendPlaceBlock(tx, ty, selectedType);
-        } else {
-          world[ty][tx] = selectedType;
-        }
-
-        inventory[selectedType]--;
-        if (inventory[selectedType] === 0) {
-          delete inventory[selectedType];
-          selectedType = Object.keys(inventory)[0] || null;
-        }
-      }
-    }
+    tapTimeout = setTimeout(() => {
+      targetBlock = { x: tx, y: ty };
+      tapTimeout = null;
+    }, 300);
   }
 
-  lastTap = currentTime;
+  lastTap = now;
 });
 
 
-  // 🖱️ Clic souris (PC)
+// 🖱️ --- CONTRÔLES SOURIS (PC) ---
+let lastClick = 0;
+let clickTimeout = null;
+
 canvas.addEventListener("mousedown", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
@@ -628,41 +595,81 @@ canvas.addEventListener("mousedown", (e) => {
   const camY = player.y - canvas.height / 2;
   const tx = Math.floor((mouseX + camX) / TILE_SIZE);
   const ty = Math.floor((mouseY + camY) / TILE_SIZE);
+  const now = Date.now();
 
-  if (e.button === 0) { // clic gauche → casser
-    if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
-      const type = world[ty][tx];
-      if (type !== 4) {
-        const hasWoodPickaxe = inventory[11] > 0;
-        const hasStonePickaxe = inventory[12] > 0;
+  if (e.button === 0) {
+    const delay = now - lastClick;
 
-        if (type === 3 && !hasWoodPickaxe) return showStatus("🪓 Pioche en bois requise", "orange");
-        if (type === 8 && !hasStonePickaxe) return showStatus("⛏️ Pioche en pierre requise", "orange");
-
-        inventory[type] = (inventory[type] || 0) + 1;
-        if (!selectedType) selectedType = type;
-        world[ty][tx] = 0;
-        spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
-      }
+    // 🖱️ Double clic = casser
+    if (delay < 300 && clickTimeout) {
+      clearTimeout(clickTimeout);
+      clickTimeout = null;
+      mineBlock(tx, ty);
+    } else {
+      // 🎯 Simple clic = sélectionner le bloc
+      clickTimeout = setTimeout(() => {
+        targetBlock = { x: tx, y: ty };
+        clickTimeout = null;
+      }, 300);
     }
+    lastClick = now;
   }
 
-  if (e.button === 2) { // clic droit → poser
-    if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
-      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
-      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
-      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
-        world[ty][tx] = selectedType;
-        inventory[selectedType]--;
-        if (inventory[selectedType] === 0) {
-          delete inventory[selectedType];
-          selectedType = Object.keys(inventory)[0] || null;
-        }
-      }
-    }
+  // 🖱️ Clic droit = poser un bloc
+  if (e.button === 2) {
+    placeBlock(tx, ty);
   }
 });
 
+// ❌ Empêche le menu clic droit
+window.addEventListener("contextmenu", e => e.preventDefault());
+
+
+// --- FONCTIONS COMMUNES ---
+function mineBlock(x, y) {
+  if (!isAccessible(x, y) || world[y][x] === 0 || world[y][x] === 4) return;
+
+  const type = world[y][x];
+  const hasWoodPickaxe = inventory[11] > 0;
+  const hasStonePickaxe = inventory[12] > 0;
+
+  if (type === 3 && !hasWoodPickaxe) return showStatus("🪓 Pioche en bois requise", "orange");
+  if (type === 8 && !hasStonePickaxe) return showStatus("⛏️ Pioche en pierre requise", "orange");
+
+  world[y][x] = 0;
+  if (multiplayerActive) sendBreakBlock(x, y);
+
+  inventory[type] = (inventory[type] || 0) + 1;
+  if (!selectedType) selectedType = type;
+
+  spawnParticles(x * TILE_SIZE, y * TILE_SIZE, colors[type]);
+  if (sounds[type]) {
+    const s = sounds[type].cloneNode();
+    s.volume = 0.3;
+    s.play().catch(() => {});
+  }
+}
+
+function placeBlock(x, y) {
+  if (!selectedType || inventory[selectedType] <= 0) return;
+  if (!canPlace(x, y)) return;
+
+  // ⚠️ Ne pas poser sur le joueur
+  const px1 = player.x, px2 = player.x + player.w;
+  const py1 = player.y, py2 = player.y + player.h;
+  const bx1 = x * TILE_SIZE, bx2 = bx1 + TILE_SIZE;
+  const by1 = y * TILE_SIZE, by2 = by1 + TILE_SIZE;
+  if (!(px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2)) return;
+
+  world[y][x] = selectedType;
+  if (multiplayerActive) sendPlaceBlock(x, y, selectedType);
+
+  inventory[selectedType]--;
+  if (inventory[selectedType] === 0) {
+    delete inventory[selectedType];
+    selectedType = Object.keys(inventory)[0] || null;
+  }
+}
   // empêcher menu clic droit
 window.addEventListener("contextmenu", e => e.preventDefault());
 
