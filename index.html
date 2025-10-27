@@ -1091,42 +1091,6 @@ closeCraftBtn.onclick = () => {
   pauseMenu.style.display = "flex";
 };
 
-  // 💬 CHAT MULTIJOUEUR
-const chatBtn = document.getElementById("chatBtn");
-const chatBox = document.getElementById("chatBox");
-const chatInput = document.getElementById("chatInput");
-const chatSend = document.getElementById("chatSend");
-const chatMessages = document.getElementById("chatMessages");
-
-chatBtn.onclick = () => {
-  chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
-  if (chatBox.style.display === "flex") chatInput.focus();
-};
-
-chatSend.onclick = sendChat;
-chatInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") sendChat();
-});
-
-function sendChat() {
-  const text = chatInput.value.trim();
-  if (!text) return;
-  if (multiplayerActive && socket && socket.readyState === 1) {
-    socket.send(JSON.stringify({ type: "chat", message: text }));
-  }
-  chatInput.value = "";
-}
-
-function addChatMessage(id, message) {
-  const div = document.createElement("div");
-  const you = (id === playerId) ? "(toi)" : id;
-  div.textContent = `${you}: ${message}`;
-  chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
-
-
-
 const craftFurnaceBtn = document.getElementById("craftFurnace");
 craftFurnaceBtn.onclick = () => {
   const STONE = 3;
