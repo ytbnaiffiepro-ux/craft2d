@@ -414,18 +414,6 @@ startSolo.onclick = () => {
   showGameUI();
   showStatus("Mode Solo activé 🎮", "lightgreen");
 };
-
-startMulti.onclick = () => {
-  startMenu.style.display = "none";
-  paused = false;
-  showGameUI();
-  showStatus("Mode multijoueur activé 🌐", "lightblue");
-
-  // 🔁 Ouvre automatiquement le vrai bouton "Multiplayer" du menu pause
-  const multiBtn = document.getElementById("multiplayer");
-  if (multiBtn) multiBtn.click();
-};
-
   
 function initHotbar() {
   hotbar.innerHTML = "";
