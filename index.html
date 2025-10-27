@@ -731,6 +731,73 @@ document.addEventListener("keydown", e => {
   }
 });
 
+    // 🌐 --- MULTIJOUEUR OPTIONNEL ---
+let multiplayerActive = false;
+let socket = null;
+let playerId = null;
+let allPlayers = {};
+
+const multiplayerBtn = document.getElementById("multiplayer");
+
+multiplayerBtn.onclick = () => {
+  if (multiplayerActive) {
+    showStatus("🔌 Déconnexion du multijoueur", "orange");
+    socket.close();
+    multiplayerActive = false;
+    return;
+  }
+
+  // 🛰️ Demande à l'utilisateur s'il veut rejoindre le multi
+  const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
+  if (!url) return;
+
+  try {
+    socket = new WebSocket(url);
+  } catch (err) {
+    showStatus("❌ Adresse invalide", "red");
+    return;
+  }
+
+  socket.onopen = () => {
+    multiplayerActive = true;
+    showStatus("✅ Connecté au multijoueur !");
+  };
+
+  socket.onerror = () => {
+    showStatus("❌ Erreur de connexion au serveur", "red");
+  };
+
+  socket.onclose = () => {
+    showStatus("🔌 Déconnecté du serveur", "orange");
+    multiplayerActive = false;
+  };
+
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    if (data.type === "init") {
+      playerId = data.id;
+      allPlayers = data.players;
+    }
+    if (data.type === "updatePlayers") {
+      allPlayers = data.players;
+    }
+    if (data.type === "worldUpdate") {
+      world = data.world;
+    }
+  };
+};
+
+// 🔄 Envoie position joueur (si multi actif)
+function sendPlayerPos() {
+  if (multiplayerActive && socket && socket.readyState === 1 && playerId) {
+    socket.send(JSON.stringify({
+      type: "move",
+      position: { x: player.x, y: player.y }
+    }));
+  }
+}
+setInterval(sendPlayerPos, 100);
+
 
 
 // 📱 Touches mobiles
@@ -997,73 +1064,6 @@ function loop() {
 initHotbar();   // créer les 9 slots (une seule fois)
 updateHotbar(); // affichage initial
 loop();         // démarrer la boucle principale
-
-  // 🌐 --- MULTIJOUEUR OPTIONNEL ---
-let multiplayerActive = false;
-let socket = null;
-let playerId = null;
-let allPlayers = {};
-
-const multiplayerBtn = document.getElementById("multiplayer");
-
-multiplayerBtn.onclick = () => {
-  if (multiplayerActive) {
-    showStatus("🔌 Déconnexion du multijoueur", "orange");
-    socket.close();
-    multiplayerActive = false;
-    return;
-  }
-
-  // 🛰️ Demande à l'utilisateur s'il veut rejoindre le multi
-  const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
-  if (!url) return;
-
-  try {
-    socket = new WebSocket(url);
-  } catch (err) {
-    showStatus("❌ Adresse invalide", "red");
-    return;
-  }
-
-  socket.onopen = () => {
-    multiplayerActive = true;
-    showStatus("✅ Connecté au multijoueur !");
-  };
-
-  socket.onerror = () => {
-    showStatus("❌ Erreur de connexion au serveur", "red");
-  };
-
-  socket.onclose = () => {
-    showStatus("🔌 Déconnecté du serveur", "orange");
-    multiplayerActive = false;
-  };
-
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "init") {
-      playerId = data.id;
-      allPlayers = data.players;
-    }
-    if (data.type === "updatePlayers") {
-      allPlayers = data.players;
-    }
-    if (data.type === "worldUpdate") {
-      world = data.world;
-    }
-  };
-};
-
-// 🔄 Envoie position joueur (si multi actif)
-function sendPlayerPos() {
-  if (multiplayerActive && socket && socket.readyState === 1 && playerId) {
-    socket.send(JSON.stringify({
-      type: "move",
-      position: { x: player.x, y: player.y }
-    }));
-  }
-}
-setInterval(sendPlayerPos, 100);
 </script>
 </body>
 </html>
