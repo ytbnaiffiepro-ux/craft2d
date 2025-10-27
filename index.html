@@ -552,13 +552,15 @@ canvas.addEventListener("touchstart", () => {
 
 canvas.addEventListener("touchend", (e) => {
   const now = Date.now();
-  const tapDuration = now - touchStartTime;  // durée du tap
+  const tapDuration = now - touchStartTime; // durée du tap
   const tapInterval = now - lastTap;
   const touch = e.changedTouches[0];
   const camX = player.x - canvas.width / 2;
   const camY = player.y - canvas.height / 2;
   const tx = Math.floor((touch.clientX + camX) / TILE_SIZE);
   const ty = Math.floor((touch.clientY + camY) / TILE_SIZE);
+
+  // 🟡 Toujours mettre à jour la sélection au premier tap
   targetBlock = { x: tx, y: ty };
 
   // 👆 Tap long (>350 ms) → poser un bloc
@@ -571,10 +573,10 @@ canvas.addEventListener("touchend", (e) => {
     tapTimeout = null;
     mineBlock(tx, ty);
   }
-  // 👆 Tap simple → sélectionner
+  // 👆 Tap simple → juste sélectionner (déjà fait au début)
   else {
     tapTimeout = setTimeout(() => {
-      targetBlock = { x: tx, y: ty };
+      // rien d’autre, la sélection est déjà faite
       tapTimeout = null;
     }, 300);
   }
@@ -598,6 +600,9 @@ canvas.addEventListener("mousedown", (e) => {
   const now = Date.now();
 
   if (e.button === 0) {
+    // 🟡 Toujours mettre à jour la sélection avant toute action
+    targetBlock = { x: tx, y: ty };
+
     const delay = now - lastClick;
 
     // 🖱️ Double clic = casser
@@ -606,9 +611,9 @@ canvas.addEventListener("mousedown", (e) => {
       clickTimeout = null;
       mineBlock(tx, ty);
     } else {
-      // 🎯 Simple clic = sélectionner le bloc
+      // 🎯 Simple clic = juste sélection
       clickTimeout = setTimeout(() => {
-        targetBlock = { x: tx, y: ty };
+        // rien à faire, déjà sélectionné ci-dessus
         clickTimeout = null;
       }, 300);
     }
@@ -633,9 +638,12 @@ function mineBlock(x, y) {
   const hasWoodPickaxe = inventory[11] > 0;
   const hasStonePickaxe = inventory[12] > 0;
 
-  if (type === 3 && !hasWoodPickaxe) return showStatus("🪓 Pioche en bois requise", "orange");
-  if (type === 8 && !hasStonePickaxe) return showStatus("⛏️ Pioche en pierre requise", "orange");
+  if (type === 3 && !hasWoodPickaxe)
+    return showStatus("🪓 Pioche en bois requise", "orange");
+  if (type === 8 && !hasStonePickaxe)
+    return showStatus("⛏️ Pioche en pierre requise", "orange");
 
+  // ✅ Casse immédiate
   world[y][x] = 0;
   if (multiplayerActive) sendBreakBlock(x, y);
 
@@ -670,6 +678,7 @@ function placeBlock(x, y) {
     selectedType = Object.keys(inventory)[0] || null;
   }
 }
+
   // empêcher menu clic droit
 window.addEventListener("contextmenu", e => e.preventDefault());
 
