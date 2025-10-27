@@ -124,6 +124,32 @@ button,
 <canvas id="game"></canvas>
 <div id="coordsDisplay"></div>
 
+  <!-- 🏁 Menu de démarrage -->
+<div id="startMenu" style="
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.85);
+  color:white;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  font-family:Arial,sans-serif;
+  z-index:100;
+">
+  <h1 style="font-size:48px; margin-bottom:40px;">Minecraft 2D</h1>
+  <button id="startSolo" style="width:240px;height:60px;margin:10px;
+    font-size:24px;border-radius:12px;background:#4caf50;color:white;">
+    🎮 Solo
+  </button>
+  <button id="startMulti" style="width:240px;height:60px;margin:10px;
+    font-size:24px;border-radius:12px;background:#2196f3;color:white;">
+    🌐 Multijoueur
+  </button>
+</div>
+
+
 <button id="pauseBtn">⏸️</button>
 
 <div id="pauseMenu">
@@ -328,6 +354,69 @@ const HOTBAR_SLOTS = 9;
 const MAX_STACK = 99;
 const hotbar = document.getElementById("hotbar");
 
+// 🏁 Menu de démarrage
+const startMenu = document.getElementById("startMenu");
+const startSolo = document.getElementById("startSolo");
+const startMulti = document.getElementById("startMulti");
+
+// On met le jeu en pause au démarrage
+paused = true;
+hideGameUI(); // cache inventaire + boutons tant que le menu est visible
+
+startSolo.onclick = () => {
+  startMenu.style.display = "none";
+  paused = false;
+  showGameUI();
+  showStatus("Mode Solo activé 🎮", "lightgreen");
+};
+
+startMulti.onclick = () => {
+  startMenu.style.display = "none";
+  paused = false;
+  showGameUI();
+  showStatus("Connexion multijoueur...", "lightblue");
+
+  // Lance la procédure multijoueur existante
+  const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
+  if (!url) {
+    showStatus("Mode solo activé par défaut 🎮", "orange");
+    return;
+  }
+
+  try {
+    socket = new WebSocket(url);
+    socket.onopen = () => {
+      multiplayerActive = true;
+      showStatus("✅ Connecté au multijoueur !");
+    };
+    socket.onerror = () => {
+      showStatus("❌ Erreur de connexion au serveur", "red");
+    };
+    socket.onclose = () => {
+      multiplayerActive = false;
+      showStatus("🔌 Déconnecté du serveur", "orange");
+    };
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "init") {
+        playerId = data.id;
+        allPlayers = data.players;
+        if (data.world) world = data.world;
+      }
+      if (data.type === "updatePlayers") allPlayers = data.players;
+      if (data.type === "blockChanged") {
+        const { x, y, action, blockType } = data;
+        if (action === "break") world[y][x] = 0;
+        if (action === "place") world[y][x] = blockType;
+      }
+    };
+  } catch (err) {
+    showStatus("❌ Adresse invalide", "red");
+  }
+};
+
+
+  
 function initHotbar() {
   hotbar.innerHTML = "";
   for (let i = 0; i < HOTBAR_SLOTS; i++) {
