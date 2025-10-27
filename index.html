@@ -708,6 +708,16 @@ document.addEventListener("keyup", e => {
   if (["ArrowLeft", "ArrowRight", "q", "d"].includes(e.key)) player.vx = 0;
 });
 
+  // 🎯 Sélection rapide avec touches 1 à 9
+document.addEventListener("keydown", e => {
+  const num = parseInt(e.key);
+  if (!isNaN(num) && num >= 1 && num <= 9) {
+    const index = num - 1; // 1 → slot 0, 9 → slot 8
+    selectSlot(index);
+  }
+});
+
+
 // 📱 Touches mobiles
 document.getElementById("left").addEventListener("touchstart", () => { if (!paused) player.vx = -speed; });
 document.getElementById("left").addEventListener("touchend", () => player.vx = 0);
