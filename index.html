@@ -489,6 +489,7 @@ if (tapLength < 300) {
       inventory[type] = (inventory[type] || 0) + 1;
       if (!selectedType) selectedType = type;
       world[ty][tx] = 0;
+      if (multiplayerActive) sendBreakBlock(tx, ty);
 
       // 💥 Effets visuels et sonores
       spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
@@ -502,17 +503,21 @@ if (tapLength < 300) {
 }
  else {
     if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
-      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
-      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
-      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
-        world[ty][tx] = selectedType;
-        inventory[selectedType]--;
-        if (inventory[selectedType] === 0) {
-          delete inventory[selectedType];
-          selectedType = Object.keys(inventory)[0] || null;
-        }
-      }
+  const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
+  const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
+  if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
+    world[ty][tx] = selectedType;
+
+    // 🧱 Synchronise avec le serveur (multijoueur)
+    if (multiplayerActive) sendPlaceBlock(tx, ty, selectedType);
+
+    inventory[selectedType]--;
+    if (inventory[selectedType] === 0) {
+      delete inventory[selectedType];
+      selectedType = Object.keys(inventory)[0] || null;
     }
+  }
+}
   }
   lastTap = currentTime;
 });
