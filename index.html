@@ -629,22 +629,42 @@ canvas.addEventListener("mousedown", (e) => {
   const tx = Math.floor((mouseX + camX) / TILE_SIZE);
   const ty = Math.floor((mouseY + camY) / TILE_SIZE);
 
-  if (e.button === 0) { // clic gauche → casser
-    if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
-      const type = world[ty][tx];
-      if (type !== 4) {
-        const hasWoodPickaxe = inventory[11] > 0;
-        const hasStonePickaxe = inventory[12] > 0;
+if (e.button === 0) { // clic gauche → casser
+  if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
+    const type = world[ty][tx];
+    if (type !== 4) { // bedrock incassable
+      const hasWoodPickaxe = inventory[11] > 0;
+      const hasStonePickaxe = inventory[12] > 0;
 
-        if (type === 3 && !hasWoodPickaxe) return showStatus("🪓 Pioche en bois requise", "orange");
-        if (type === 8 && !hasStonePickaxe) return showStatus("⛏️ Pioche en pierre requise", "orange");
+      if (type === 3 && !hasWoodPickaxe) 
+        return showStatus("🪓 Pioche en bois requise", "orange");
+      if (type === 8 && !hasStonePickaxe) 
+        return showStatus("⛏️ Pioche en pierre requise", "orange");
 
-        inventory[type] = (inventory[type] || 0) + 1;
-        if (!selectedType) selectedType = type;
-        world[ty][tx] = 0;
-        spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
+      // ✅ Ajoute le bloc à l’inventaire localement (c’est logique)
+      inventory[type] = (inventory[type] || 0) + 1;
+      if (!selectedType) selectedType = type;
+
+      // 🚫 NE MODIFIE PAS localement le monde
+      // world[ty][tx] = 0; ❌ à supprimer
+
+      // ✅ Envoie la casse au serveur
+      if (multiplayerActive) {
+        sendBreakBlock(tx, ty);
+      } else {
+        world[ty][tx] = 0; // Solo seulement
+      }
+
+      // Effets visuels/sound
+      spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
+      if (sounds[type]) {
+        const s = sounds[type].cloneNode();
+        s.volume = 0.3;
+        s.play().catch(() => {});
       }
     }
+  }
+}
   }
 
   if (e.button === 2) { // clic droit → poser
