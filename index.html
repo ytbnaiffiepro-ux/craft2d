@@ -994,8 +994,9 @@ function sendPlaceBlock(x, y, blockType) {
   }
 }
 
-  // 💬 --- CHAT MULTIJOUEUR ---
+// 💬 --- CHAT MULTIJOUEUR ---
 const chatBtn = document.getElementById("chatBtn");
+chatBtn.style.display = "block"; // 👈 bouton visible dès le départ
 const chatBox = document.getElementById("chatBox");
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
