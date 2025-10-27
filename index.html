@@ -735,6 +735,7 @@ document.addEventListener("keyup", e => {
   if (["ArrowLeft", "ArrowRight", "q", "d"].includes(e.key)) player.vx = 0;
 });
 
+
 // 🌐 --- MULTIJOUEUR OPTIONNEL ---
 let multiplayerActive = false;
 let socket = null;
@@ -869,6 +870,7 @@ const loadBtn = document.getElementById("load");
 const toggleCoordsBtn = document.getElementById("toggleCoords");
 const coordsDisplay = document.getElementById("coordsDisplay");
 let showCoords = false;
+  
 // 🧩 Système de craft
 const craftBtn = document.getElementById("craft");
 const craftMenu = document.getElementById("craftMenu");
@@ -879,13 +881,16 @@ const closeCraftBtn = document.getElementById("closeCraft");
 craftBtn.onclick = () => {
   pauseMenu.style.display = "none";
   craftMenu.style.display = "flex";
+  hideGameUI(); // 👈 masque l'inventaire et les boutons
 };
 
 // fermer le menu de craft
 closeCraftBtn.onclick = () => {
   craftMenu.style.display = "none";
   pauseMenu.style.display = "flex";
+  showGameUI(); // 👈 remet l'inventaire et les boutons
 };
+
 
 const craftFurnaceBtn = document.getElementById("craftFurnace");
 craftFurnaceBtn.onclick = () => {
@@ -948,6 +953,7 @@ const smeltIronBtn = document.getElementById("smeltIron");
 const closeFurnaceBtn = document.getElementById("closeFurnace");
 const furnaceStatus = document.getElementById("furnaceStatus");
 
+// 👇 Unique bloc pour ouvrir le four
 canvas.addEventListener("click", (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
@@ -958,18 +964,21 @@ canvas.addEventListener("click", (e) => {
   const tx = Math.floor((mouseX + camX) / TILE_SIZE);
   const ty = Math.floor((mouseY + camY) / TILE_SIZE);
 
-  // Ouvrir le four uniquement si on clique exactement sur un bloc four
-  if (world[ty] && world[ty][tx] === 10) { // 10 = four
+  // Ouvrir le four uniquement si on clique sur un bloc four (10)
+  if (world[ty] && world[ty][tx] === 10) {
     paused = true;
     furnaceMenu.style.display = "flex";
+    hideGameUI(); // 👈 masque inventaire + contrôles
   }
 });
 
-// fermer le menu du four
+// 🔒 Fermer le menu du four
 closeFurnaceBtn.onclick = () => {
   furnaceMenu.style.display = "none";
   paused = false;
+  showGameUI(); // 👈 réaffiche inventaire + contrôles
 };
+
 
 smeltIronBtn.onclick = () => {
   const IRON_ORE = 8;
@@ -1028,10 +1037,40 @@ toggleCoordsBtn.onclick = () => {
   toggleCoordsBtn.textContent = showCoords ? "📍 Masquer coordonnées" : "📍 Coordonnées";
 };
 
-pauseBtn.onclick = () => { paused = !paused; pauseMenu.style.display = paused ? "flex" : "none"; };
-resumeBtn.onclick = () => { paused = false; pauseMenu.style.display = "none"; };
-restartBtn.onclick = () => { location.reload(); };
-quitBtn.onclick = () => { window.location.href = "about:blank"; };
+  function hideGameUI() {
+  document.getElementById("hotbar").style.display = "none";
+  document.getElementById("controls").style.display = "none";
+}
+
+function showGameUI() {
+  document.getElementById("hotbar").style.display = "flex";
+  document.getElementById("controls").style.display = "flex";
+}
+
+
+pauseBtn.onclick = () => { 
+  paused = !paused; 
+  pauseMenu.style.display = paused ? "flex" : "none"; 
+
+  // 👇 Cache ou affiche l’inventaire + boutons de déplacement
+  if (paused) hideGameUI(); 
+  else showGameUI();
+};
+
+resumeBtn.onclick = () => { 
+  paused = false; 
+  pauseMenu.style.display = "none"; 
+  showGameUI(); // 👈 remet l’interface quand on reprend le jeu
+};
+
+restartBtn.onclick = () => { 
+  location.reload(); 
+};
+
+quitBtn.onclick = () => { 
+  window.location.href = "about:blank"; 
+};
+
 
 // 💾 Sauvegarde
 saveBtn.addEventListener("click", () => {
