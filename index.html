@@ -722,7 +722,7 @@ document.addEventListener("keyup", e => {
   if (["ArrowLeft", "ArrowRight", "q", "d"].includes(e.key)) player.vx = 0;
 });
 
-  // 🌐 --- MULTIJOUEUR OPTIONNEL ---
+// 🌐 --- MULTIJOUEUR OPTIONNEL ---
 let multiplayerActive = false;
 let socket = null;
 let playerId = null;
@@ -764,20 +764,37 @@ multiplayerBtn.onclick = () => {
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
+
+    // 🧱 Initialisation : ID, joueurs et monde du serveur
     if (data.type === "init") {
       playerId = data.id;
       allPlayers = data.players;
+      if (data.world) {
+        world = data.world;
+        console.log("🌍 Monde reçu du serveur");
+      }
     }
+
+    // 👥 Mise à jour des positions des autres joueurs
     if (data.type === "updatePlayers") {
       allPlayers = data.players;
     }
-    if (data.type === "worldUpdate") {
+
+    // 💥 Un bloc a été cassé ou placé
+    if (data.type === "blockChanged") {
+      const { x, y, action, blockType } = data;
+      if (action === "break") world[y][x] = 0;
+      if (action === "place") world[y][x] = blockType;
+    }
+
+    // 🌍 Le serveur renvoie le monde complet (optionnel)
+    if (data.type === "world") {
       world = data.world;
     }
   };
 };
 
-// 🔄 Envoie position joueur (si multi actif)
+// 🔄 Envoie la position du joueur au serveur
 function sendPlayerPos() {
   if (multiplayerActive && socket && socket.readyState === 1 && playerId) {
     socket.send(JSON.stringify({
@@ -787,6 +804,29 @@ function sendPlayerPos() {
   }
 }
 setInterval(sendPlayerPos, 100);
+
+// 🔨 Quand tu casses un bloc
+function sendBreakBlock(x, y) {
+  if (multiplayerActive && socket && socket.readyState === 1) {
+    socket.send(JSON.stringify({
+      type: "breakBlock",
+      x,
+      y
+    }));
+  }
+}
+
+// 🧱 Quand tu places un bloc
+function sendPlaceBlock(x, y, blockType) {
+  if (multiplayerActive && socket && socket.readyState === 1) {
+    socket.send(JSON.stringify({
+      type: "placeBlock",
+      x,
+      y,
+      blockType
+    }));
+  }
+}
 
 
 // 🎯 Sélection rapide avec touches 1 à 9
