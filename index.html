@@ -516,6 +516,53 @@ if (tapLength < 300) {
   lastTap = currentTime;
 });
 
+  // 🖱️ Clic souris (PC)
+canvas.addEventListener("mousedown", (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  const camX = player.x - canvas.width / 2;
+  const camY = player.y - canvas.height / 2;
+  const tx = Math.floor((mouseX + camX) / TILE_SIZE);
+  const ty = Math.floor((mouseY + camY) / TILE_SIZE);
+
+  if (e.button === 0) { // clic gauche → casser
+    if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
+      const type = world[ty][tx];
+      if (type !== 4) {
+        const hasWoodPickaxe = inventory[11] > 0;
+        const hasStonePickaxe = inventory[12] > 0;
+
+        if (type === 3 && !hasWoodPickaxe) return showStatus("🪓 Pioche en bois requise", "orange");
+        if (type === 8 && !hasStonePickaxe) return showStatus("⛏️ Pioche en pierre requise", "orange");
+
+        inventory[type] = (inventory[type] || 0) + 1;
+        if (!selectedType) selectedType = type;
+        world[ty][tx] = 0;
+        spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
+      }
+    }
+  }
+
+  if (e.button === 2) { // clic droit → poser
+    if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
+      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
+      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
+      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
+        world[ty][tx] = selectedType;
+        inventory[selectedType]--;
+        if (inventory[selectedType] === 0) {
+          delete inventory[selectedType];
+          selectedType = Object.keys(inventory)[0] || null;
+        }
+      }
+    }
+  }
+});
+
+  // empêcher menu clic droit
+window.addEventListener("contextmenu", e => e.preventDefault());
+
 function getSkyColor() {
   const t = (time % DAY_DURATION) / DAY_DURATION; 
   const factor = 0.5 * (1 + Math.sin(2 * Math.PI * t - Math.PI / 2));
