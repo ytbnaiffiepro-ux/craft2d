@@ -464,63 +464,71 @@ canvas.addEventListener("touchend", (e) => {
   const ty = Math.floor((touch.clientY + camY) / TILE_SIZE);
   targetBlock = { x: tx, y: ty };
 
-if (tapLength < 300) {
-  if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
-    const type = world[ty][tx];
-    if (type !== 4) { // bedrock incassable
+  // 👊 Tap court = casser un bloc
+  if (tapLength < 300) {
+    if (isAccessible(tx, ty) && world[ty][tx] !== 0) {
+      const type = world[ty][tx];
+      if (type !== 4) { // bedrock incassable
+        const hasWoodPickaxe = inventory[11] > 0;
+        const hasStonePickaxe = inventory[12] > 0;
 
-      // 🔒 Vérification de la pioche possédée
-      const hasWoodPickaxe = inventory[11] > 0;  // pioche en bois
-      const hasStonePickaxe = inventory[12] > 0; // pioche en pierre
+        if (type === 3 && !hasWoodPickaxe) {
+          showStatus("🪓 Il faut une pioche en bois pour casser la pierre !", "orange");
+          return;
+        }
 
-      // 🪨 Pierre : nécessite pioche en bois
-      if (type === 3 && !hasWoodPickaxe) {
-        showStatus("🪓 Il faut une pioche en bois pour casser la pierre !", "orange");
-        return;
-      }
+        if (type === 8 && !hasStonePickaxe) {
+          showStatus("⛏️ Il faut une pioche en pierre pour miner le fer !", "orange");
+          return;
+        }
 
-      // ⛏️ Minerai de fer : nécessite pioche en pierre
-      if (type === 8 && !hasStonePickaxe) {
-        showStatus("⛏️ Il faut une pioche en pierre pour miner le fer !", "orange");
-        return;
-      }
+        // ✅ Casse du bloc
+        inventory[type] = (inventory[type] || 0) + 1;
+        if (!selectedType) selectedType = type;
 
-      // ✅ Casse du bloc
-      inventory[type] = (inventory[type] || 0) + 1;
-      if (!selectedType) selectedType = type;
-      world[ty][tx] = 0;
-      if (multiplayerActive) sendBreakBlock(tx, ty);
+        // 🧠 👉 On ne modifie plus localement en multijoueur :
+        if (multiplayerActive) {
+          sendBreakBlock(tx, ty);
+        } else {
+          world[ty][tx] = 0; // solo seulement
+        }
 
-      // 💥 Effets visuels et sonores
-      spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
-      if (sounds[type]) {
-        const s = sounds[type].cloneNode();
-        s.volume = 0.3;
-        s.play().catch(()=>{});
+        spawnParticles(tx * TILE_SIZE, ty * TILE_SIZE, colors[type]);
+        if (sounds[type]) {
+          const s = sounds[type].cloneNode();
+          s.volume = 0.3;
+          s.play().catch(() => {});
+        }
       }
     }
   }
-}
- else {
+
+  // 👆 Tap long = poser un bloc
+  else {
     if (selectedType && inventory[selectedType] > 0 && canPlace(tx, ty)) {
-  const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
-  const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
-  if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
-    world[ty][tx] = selectedType;
+      const px1 = player.x, px2 = player.x + player.w, py1 = player.y, py2 = player.y + player.h;
+      const bx1 = tx * TILE_SIZE, bx2 = bx1 + TILE_SIZE, by1 = ty * TILE_SIZE, by2 = by1 + TILE_SIZE;
+      if (px2 < bx1 || px1 > bx2 || py2 < by1 || py1 > by2) {
 
-    // 🧱 Synchronise avec le serveur (multijoueur)
-    if (multiplayerActive) sendPlaceBlock(tx, ty, selectedType);
+        // 🧱 👉 On ne place pas localement en multi
+        if (multiplayerActive) {
+          sendPlaceBlock(tx, ty, selectedType);
+        } else {
+          world[ty][tx] = selectedType;
+        }
 
-    inventory[selectedType]--;
-    if (inventory[selectedType] === 0) {
-      delete inventory[selectedType];
-      selectedType = Object.keys(inventory)[0] || null;
+        inventory[selectedType]--;
+        if (inventory[selectedType] === 0) {
+          delete inventory[selectedType];
+          selectedType = Object.keys(inventory)[0] || null;
+        }
+      }
     }
   }
-}
-  }
+
   lastTap = currentTime;
 });
+
 
   // 🖱️ Clic souris (PC)
 canvas.addEventListener("mousedown", (e) => {
