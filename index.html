@@ -152,6 +152,19 @@ button,
 
 <button id="pauseBtn">⏸️</button>
 
+  <button id="chatBtn" style="
+  position: fixed;
+  top: 75px;
+  right: 15px;
+  width:50px;
+  height:50px;
+  font-size:22px;
+  border-radius:50%;
+  background: rgba(0,0,0,0.6);
+  display:none;
+">💬</button>
+
+
 <div id="pauseMenu">
   <h1>Jeu en pause</h1>
   <button id="resume">▶️ Continuer</button>
@@ -213,6 +226,38 @@ font-family:Arial,sans-serif;">
   <button id="jump">⤒</button>
   <button id="right">▶️</button>
 </div>
+
+  <div id="chatBox" style="
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80%;
+  max-width: 600px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  font-family: Arial, sans-serif;
+  padding: 10px;
+  border-radius: 12px;
+  display: none;
+  flex-direction: column;
+  z-index: 50;
+">
+  <div id="chatMessages" style="
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 10px;
+    font-size: 16px;
+  "></div>
+  <div style="display: flex; gap: 10px;">
+    <input id="chatInput" type="text" placeholder="Écrire un message..." 
+      style="flex:1; padding:8px; border-radius:8px; border:none; outline:none; font-size:16px;">
+    <button id="chatSend" style="
+      padding:8px 16px; border:none; border-radius:8px;
+      background:#4caf50; color:white; font-size:16px;">Envoyer</button>
+  </div>
+</div>
+
 
 <script>
 const canvas = document.getElementById("game");
@@ -848,6 +893,13 @@ let playerId = null;
 let allPlayers = {};
 
 const multiplayerBtn = document.getElementById("multiplayer");
+const chatBtn = document.getElementById("chatBtn");
+const chatBox = document.getElementById("chatBox");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const chatMessages = document.getElementById("chatMessages");
+const saveBtn = document.getElementById("save");
+const loadBtn = document.getElementById("load");
 
 multiplayerBtn.onclick = () => {
   if (multiplayerActive) {
@@ -870,6 +922,11 @@ multiplayerBtn.onclick = () => {
   socket.onopen = () => {
     multiplayerActive = true;
     showStatus("✅ Connecté au multijoueur !");
+
+    // 💬 Affiche le bouton de chat et désactive la sauvegarde/chargement
+    chatBtn.style.display = "block";
+    saveBtn.style.display = "none";
+    loadBtn.style.display = "none";
   };
 
   socket.onerror = () => {
@@ -879,6 +936,12 @@ multiplayerBtn.onclick = () => {
   socket.onclose = () => {
     showStatus("🔌 Déconnecté du serveur", "orange");
     multiplayerActive = false;
+
+    // 🔕 Cache le chat et réactive la sauvegarde/chargement
+    chatBtn.style.display = "none";
+    chatBox.style.display = "none";
+    saveBtn.style.display = "block";
+    loadBtn.style.display = "block";
   };
 
   socket.onmessage = (event) => {
@@ -909,6 +972,11 @@ multiplayerBtn.onclick = () => {
     // 🌍 Le serveur renvoie le monde complet (optionnel)
     if (data.type === "world") {
       world = data.world;
+    }
+
+    // 💬 Message de chat reçu
+    if (data.type === "chat") {
+      addChatMessage(data.id, data.message);
     }
   };
 };
@@ -945,6 +1013,34 @@ function sendPlaceBlock(x, y, blockType) {
       blockType
     }));
   }
+}
+
+// 💬 Gestion du chat côté client
+chatBtn.onclick = () => {
+  chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
+  if (chatBox.style.display === "flex") chatInput.focus();
+};
+
+chatSend.onclick = sendChat;
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
+});
+
+function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  if (multiplayerActive && socket && socket.readyState === 1) {
+    socket.send(JSON.stringify({ type: "chat", message: text }));
+  }
+  chatInput.value = "";
+}
+
+function addChatMessage(id, message) {
+  const div = document.createElement("div");
+  const you = (id === playerId) ? "(toi)" : id;
+  div.textContent = `${you}: ${message}`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 
@@ -1011,6 +1107,41 @@ closeCraftBtn.onclick = () => {
   craftMenu.style.display = "none";
   pauseMenu.style.display = "flex";
 };
+
+  // 💬 CHAT MULTIJOUEUR
+const chatBtn = document.getElementById("chatBtn");
+const chatBox = document.getElementById("chatBox");
+const chatInput = document.getElementById("chatInput");
+const chatSend = document.getElementById("chatSend");
+const chatMessages = document.getElementById("chatMessages");
+
+chatBtn.onclick = () => {
+  chatBox.style.display = chatBox.style.display === "flex" ? "none" : "flex";
+  if (chatBox.style.display === "flex") chatInput.focus();
+};
+
+chatSend.onclick = sendChat;
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendChat();
+});
+
+function sendChat() {
+  const text = chatInput.value.trim();
+  if (!text) return;
+  if (multiplayerActive && socket && socket.readyState === 1) {
+    socket.send(JSON.stringify({ type: "chat", message: text }));
+  }
+  chatInput.value = "";
+}
+
+function addChatMessage(id, message) {
+  const div = document.createElement("div");
+  const you = (id === playerId) ? "(toi)" : id;
+  div.textContent = `${you}: ${message}`;
+  chatMessages.appendChild(div);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
 
 
 const craftFurnaceBtn = document.getElementById("craftFurnace");
