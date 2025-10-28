@@ -442,7 +442,6 @@ startMulti.onclick = () => {
   showGameUI();
   showStatus("Connexion multijoueur...", "lightblue");
 
-  // Lance la procédure multijoueur existante
   const url = prompt("Entre l’adresse du serveur :", "");
   if (!url) {
     showStatus("Mode solo activé par défaut 🎮", "orange");
@@ -451,25 +450,48 @@ startMulti.onclick = () => {
 
   try {
     socket = new WebSocket(url);
+
     socket.onopen = () => {
       multiplayerActive = true;
       showStatus("✅ Connecté au multijoueur !");
+      chatBtn.style.display = "block"; // 💬 bouton chat visible quand connecté
     };
+
     socket.onerror = () => {
       showStatus("❌ Erreur de connexion au serveur", "red");
     };
+
     socket.onclose = () => {
       multiplayerActive = false;
       showStatus("🔌 Déconnecté du serveur", "orange");
+      chatBtn.style.display = "none"; // 💬 cacher le chat quand déconnecté
     };
+
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
+      // 💬 --- CHAT ---
+      if (data.type === "chat") {
+        handleChatMessage(data); // ✅ affiche le message dans la boîte de chat
+        return; // on s'arrête ici pour ne pas exécuter le reste
+      }
+
+      // 🌍 --- INIT : ID, joueurs et monde ---
       if (data.type === "init") {
         playerId = data.id;
         allPlayers = data.players;
-        if (data.world) world = data.world;
+        if (data.world) {
+          world = data.world;
+          console.log("🌍 Monde reçu du serveur");
+        }
       }
-      if (data.type === "updatePlayers") allPlayers = data.players;
+
+      // 👥 --- MàJ joueurs ---
+      if (data.type === "updatePlayers") {
+        allPlayers = data.players;
+      }
+
+      // 🧱 --- Changement de blocs ---
       if (data.type === "blockChanged") {
         const { x, y, action, blockType } = data;
         if (action === "break") world[y][x] = 0;
@@ -480,7 +502,6 @@ startMulti.onclick = () => {
     showStatus("❌ Adresse invalide", "red");
   }
 };
-
 
   
 function initHotbar() {
@@ -916,36 +937,78 @@ let allPlayers = {};
 const multiplayerBtn = document.getElementById("multiplayer");
 
 multiplayerBtn.onclick = () => {
+  // 🔌 Si déjà connecté → déconnexion
   if (multiplayerActive) {
     showStatus("🔌 Déconnexion du multijoueur", "orange");
     socket.close();
     multiplayerActive = false;
+    chatBtn.style.display = "none"; // 💬 cacher le chat à la déconnexion
     return;
   }
 
+  // 🌐 Demande l’adresse du serveur
   const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
   if (!url) return;
 
   try {
     socket = new WebSocket(url);
+
+    // ✅ Connexion réussie
+    socket.onopen = () => {
+      multiplayerActive = true;
+      showStatus("✅ Connecté au multijoueur !");
+      chatBtn.style.display = "block"; // 💬 affiche le bouton chat
+    };
+
+    // ⚠️ Erreur de connexion
+    socket.onerror = () => {
+      showStatus("❌ Erreur de connexion au serveur", "red");
+    };
+
+    // 🔌 Déconnexion
+    socket.onclose = () => {
+      multiplayerActive = false;
+      showStatus("🔌 Déconnecté du serveur", "orange");
+      chatBtn.style.display = "none"; // 💬 cache le chat
+    };
+
+    // 💬 + 🌍 Réception des messages
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      // 💬 --- CHAT ---
+      if (data.type === "chat") {
+        handleChatMessage(data); // ✅ ajoute le message dans la fenêtre
+        return;
+      }
+
+      // 🌍 --- INIT ---
+      if (data.type === "init") {
+        playerId = data.id;
+        allPlayers = data.players;
+        if (data.world) {
+          world = data.world;
+          console.log("🌍 Monde reçu du serveur");
+        }
+      }
+
+      // 👥 --- MàJ joueurs ---
+      if (data.type === "updatePlayers") {
+        allPlayers = data.players;
+      }
+
+      // 🧱 --- MàJ blocs ---
+      if (data.type === "blockChanged") {
+        const { x, y, action, blockType } = data;
+        if (action === "break") world[y][x] = 0;
+        if (action === "place") world[y][x] = blockType;
+      }
+    };
   } catch (err) {
     showStatus("❌ Adresse invalide", "red");
-    return;
   }
+};
 
-  socket.onopen = () => {
-    multiplayerActive = true;
-    showStatus("✅ Connecté au multijoueur !");
-  };
-
-  socket.onerror = () => {
-    showStatus("❌ Erreur de connexion au serveur", "red");
-  };
-
-  socket.onclose = () => {
-    showStatus("🔌 Déconnecté du serveur", "orange");
-    multiplayerActive = false;
-  };
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
