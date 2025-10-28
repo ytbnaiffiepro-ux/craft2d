@@ -1027,7 +1027,6 @@ function sendPlaceBlock(x, y, blockType) {
 }
 
 // 💬 --- CHAT MULTIJOUEUR ---
-// 💬 Fonction d'ouverture / fermeture du chat
 function toggleChat() {
   const visible = chatBox.style.display === "flex";
   chatBox.style.display = visible ? "none" : "flex";
@@ -1045,6 +1044,12 @@ function toggleChat() {
 // 🖱️ Bouton pour ouvrir/fermer le chat
 chatBtn.onclick = toggleChat;
 
+// 💬 Ouvrir le chat avec la touche T, fermer avec Échap
+document.addEventListener("keydown", (e) => {
+  // ne pas ouvrir si on tape dans un champ texte
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+
   // touche T → ouvre le chat seulement si pas déjà ouvert
   if (e.key.toLowerCase() === "t" && chatBox.style.display !== "flex") {
     e.preventDefault();
@@ -1057,8 +1062,6 @@ chatBtn.onclick = toggleChat;
     toggleChat();
   }
 });
-
-
 
 
 // Entrée = envoi
