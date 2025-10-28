@@ -1045,9 +1045,12 @@ function handleChatMessage(data) {
   const div = document.createElement("div");
   const prefix = (data.id === playerId) ? "🧍‍♂️ Toi" : `👤 ${data.id}`;
   div.textContent = `${prefix}: ${data.message}`;
+  div.style.padding = "4px 6px";
+  div.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
   chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight;
+  chatMessages.scrollTop = chatMessages.scrollHeight; // ✅ auto-scroll
 }
+
 
 // Active le chat seulement en multijoueur
 function showChatButton() {
