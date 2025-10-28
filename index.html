@@ -287,42 +287,55 @@ ctx.imageSmoothingEnabled = false;
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
-const TILE_SIZE = 40;
-const WORLD_WIDTH = 200;
-const WORLD_HEIGHT = 60; // 🌍 plus haut qu'avant
-let world = [], baseGround = 20;
+import { Noise } from "noisejs"; // npm install noisejs
 
-function generateWorld() {
-  world = [];
-  for (let y = 0; y < WORLD_HEIGHT; y++) {
-    world[y] = [];
-    for (let x = 0; x < WORLD_WIDTH; x++) {
-      const variation = Math.floor(Math.sin(x / 5) * 2 + Math.random() * 2);
-      const height = baseGround + variation;
-      if (y < height - 4) world[y][x] = 0; // air
-      else if (y === height - 4) world[y][x] = 1; // herbe
-      else if (y < height - 1) world[y][x] = 2; // terre
-      else if (y < WORLD_HEIGHT - 1) world[y][x] = 3; // pierre
-      else world[y][x] = 4; // bedrock
+const TILE_SIZE = 40;
+const CHUNK_WIDTH = 16;
+const CHUNK_HEIGHT = 60;
+const BASE_GROUND = 20;
+
+const noise = new Noise("ma_seed"); // 🌱 même seed = même monde
+const chunks = new Map(); // { "chunkX": chunkData }
+
+// ⚒️ Génère un chunk unique
+function generateChunk(chunkX) {
+  const chunk = [];
+
+  for (let y = 0; y < CHUNK_HEIGHT; y++) {
+    chunk[y] = [];
+    for (let x = 0; x < CHUNK_WIDTH; x++) {
+      const worldX = chunkX * CHUNK_WIDTH + x;
+      const height = Math.floor(BASE_GROUND + noise.perlin2(worldX / 25, 0) * 5);
+
+      if (y < height - 4) chunk[y][x] = 0;      // air
+      else if (y === height - 4) chunk[y][x] = 1; // herbe
+      else if (y < height - 1) chunk[y][x] = 2;   // terre
+      else if (y < CHUNK_HEIGHT - 1) chunk[y][x] = 3; // pierre
+      else chunk[y][x] = 4;                       // bedrock
     }
   }
 
-  // 🌲 Génération des arbres
-  for (let x = 2; x < WORLD_WIDTH - 2; x++) {
+  // 🌲 Arbres
+  for (let x = 2; x < CHUNK_WIDTH - 2; x++) {
     if (Math.random() < 0.08) {
-      for (let y = 0; y < WORLD_HEIGHT - 1; y++) {
-        if (world[y][x] === 1 && world[y + 1][x] === 2) {
+      for (let y = 0; y < CHUNK_HEIGHT - 1; y++) {
+        if (chunk[y][x] === 1 && chunk[y + 1][x] === 2) {
           const height = 3 + Math.floor(Math.random() * 3);
           for (let h = 0; h < height; h++) {
-            if (y - h >= 0) world[y - h][x] = 5;
+            if (y - h >= 0) chunk[y - h][x] = 5;
           }
           const topY = y - height;
           for (let fy = -2; fy <= 2; fy++) {
             for (let fx = -2; fx <= 2; fx++) {
               const dist = Math.abs(fx) + Math.abs(fy);
               const nx = x + fx, ny = topY + fy;
-              if (nx >= 0 && nx < WORLD_WIDTH && ny >= 0 && ny < WORLD_HEIGHT) {
-                if (dist <= 2 && world[ny][nx] === 0) world[ny][nx] = 6;
+              if (
+                nx >= 0 && nx < CHUNK_WIDTH &&
+                ny >= 0 && ny < CHUNK_HEIGHT &&
+                dist <= 2 &&
+                chunk[ny][nx] === 0
+              ) {
+                chunk[ny][nx] = 6; // feuillage
               }
             }
           }
@@ -332,39 +345,61 @@ function generateWorld() {
     }
   }
 
-  // 🌌 Génération des grottes
-  for (let i = 0; i < 200; i++) {
-    let cx = Math.floor(Math.random() * WORLD_WIDTH);
-    let cy = Math.floor(baseGround + Math.random() * (WORLD_HEIGHT - baseGround - 5));
-    let r = 3 + Math.random() * 3;
+  // 🌌 Grottes
+  for (let i = 0; i < 10; i++) {
+    let cx = Math.floor(Math.random() * CHUNK_WIDTH);
+    let cy = Math.floor(BASE_GROUND + Math.random() * (CHUNK_HEIGHT - BASE_GROUND - 5));
+    let r = 2 + Math.random() * 3;
     for (let y = -r; y <= r; y++) {
       for (let x = -r; x <= r; x++) {
         if (x * x + y * y <= r * r) {
           let gx = cx + x, gy = cy + y;
-          if (world[gy] && world[gy][gx] && world[gy][gx] !== 4) world[gy][gx] = 0;
+          if (chunk[gy] && chunk[gy][gx] && chunk[gy][gx] !== 4) chunk[gy][gx] = 0;
         }
       }
     }
   }
 
-  // ⛏️ Génération du minerai de fer
-  for (let i = 0; i < 50; i++) {
-    const x = Math.floor(Math.random() * WORLD_WIDTH);
-    const y = Math.floor(baseGround + 8 + Math.random() * (WORLD_HEIGHT - baseGround - 20));
-    if (world[y] && world[y][x] === 3) { // dans la pierre uniquement
-      const clusterSize = 2 + Math.floor(Math.random() * 3);
+  // ⛏️ Minerai de fer
+  for (let i = 0; i < 5; i++) {
+    const x = Math.floor(Math.random() * CHUNK_WIDTH);
+    const y = Math.floor(BASE_GROUND + 8 + Math.random() * (CHUNK_HEIGHT - BASE_GROUND - 20));
+    if (chunk[y] && chunk[y][x] === 3) {
       for (let dx = -1; dx <= 1; dx++) {
         for (let dy = -1; dy <= 1; dy++) {
-          if (Math.random() < 0.6 && world[y + dy] && world[y + dy][x + dx] === 3) {
-            world[y + dy][x + dx] = 8; // minerai de fer
+          if (Math.random() < 0.6 && chunk[y + dy] && chunk[y + dy][x + dx] === 3) {
+            chunk[y + dy][x + dx] = 8; // fer
           }
         }
       }
     }
   }
+
+  return chunk;
 }
 
-generateWorld();
+// 📦 Renvoie un chunk existant ou le génère
+function getChunk(chunkX) {
+  const key = `${chunkX}`;
+  if (!chunks.has(key)) {
+    chunks.set(key, generateChunk(chunkX));
+  }
+  return chunks.get(key);
+}
+
+// 🚀 Envoie les chunks visibles autour du joueur
+function sendVisibleChunks(ws, playerX) {
+  const chunkX = Math.floor(playerX / (CHUNK_WIDTH * TILE_SIZE));
+  const visible = [chunkX - 1, chunkX, chunkX + 1]; // 3 chunks autour
+  const data = {};
+
+  for (const cx of visible) {
+    data[cx] = getChunk(cx);
+  }
+
+  ws.send(JSON.stringify({ type: "chunks", chunks: data }));
+}
+
 
 const colors = {
   0: "#87ceeb", // air
