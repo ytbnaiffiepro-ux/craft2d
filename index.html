@@ -440,6 +440,12 @@ startSolo.onclick = () => {
 };
 
 startMulti.onclick = () => {
+  // ✅ Correction : assure que les variables existent
+  if (typeof multiplayerActive === "undefined") multiplayerActive = false;
+  if (typeof socket === "undefined") socket = null;
+  if (typeof playerId === "undefined") playerId = null;
+  if (typeof allPlayers === "undefined") allPlayers = {};
+
   startMenu.style.display = "none";
   paused = false;
   showGameUI();
@@ -479,8 +485,6 @@ startMulti.onclick = () => {
     showStatus("❌ Adresse invalide", "red");
   }
 };
-
-
   
 function initHotbar() {
   hotbar.innerHTML = "";
