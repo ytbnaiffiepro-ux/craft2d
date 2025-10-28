@@ -1027,12 +1027,12 @@ function sendPlaceBlock(x, y, blockType) {
 }
 
 // 💬 --- CHAT MULTIJOUEUR ---
-function toggleChat() {
+function toggleChat(open = null) {
   const visible = chatBox.style.display === "flex";
-  chatBox.style.display = visible ? "none" : "flex";
+  const shouldOpen = open !== null ? open : !visible;
 
-  // ✅ met à jour l'état global
-  chatOpen = !visible;
+  chatBox.style.display = shouldOpen ? "flex" : "none";
+  chatOpen = shouldOpen;
 
   if (chatOpen) {
     chatInput.focus();
@@ -1042,32 +1042,62 @@ function toggleChat() {
 }
 
 // 🖱️ Bouton pour ouvrir/fermer le chat
-chatBtn.onclick = toggleChat;
+chatBtn.onclick = () => toggleChat(!chatOpen);
 
-// 💬 Ouvrir le chat avec la touche T, fermer avec Échap
+// 💬 Ouvrir le chat avec T, fermer avec Échap
 document.addEventListener("keydown", (e) => {
-  // ne pas ouvrir si on tape dans un champ texte
   const ae = document.activeElement;
-  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
 
-  // touche T → ouvre le chat seulement si pas déjà ouvert
+  // Si on tape dans un champ texte
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) {
+    // Si on appuie sur Échap → fermer le chat
+    if (e.key === "Escape") {
+      e.preventDefault();
+      toggleChat(false);
+    }
+    return;
+  }
+
+  // T → ouvrir le chat seulement si pas déjà ouvert
   if (e.key.toLowerCase() === "t" && chatBox.style.display !== "flex") {
     e.preventDefault();
-    toggleChat();
+    toggleChat(true);
   }
 
-  // touche Échap → ferme le chat seulement s'il est ouvert
+  // Échap → fermer si ouvert
   if (e.key === "Escape" && chatBox.style.display === "flex") {
     e.preventDefault();
-    toggleChat();
+    toggleChat(false);
   }
 });
 
-
-// Entrée = envoi
-chatInput.addEventListener("keydown", e => {
-  if (e.key === "Enter") sendChat.click();
+// 💬 Entrée = envoi du message
+chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    sendCurrentChatMessage();
+  }
 });
+
+// 📨 Fonction d'envoi des messages
+function sendCurrentChatMessage() {
+  const msg = chatInput.value.trim();
+  if (!msg) return;
+
+  if (!multiplayerActive || !socket || socket.readyState !== 1) {
+    alert("⚠️ Tu n'es pas connecté à un serveur multijoueur !");
+    return;
+  }
+
+  socket.send(JSON.stringify({
+    type: "chat",
+    id: playerId || "???",
+    message: msg
+  }));
+
+  chatInput.value = "";
+}
+
 
 // 📩 Réception et affichage des messages du chat
 function handleChatMessage(data) {
