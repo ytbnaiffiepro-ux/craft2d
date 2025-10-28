@@ -911,13 +911,28 @@ let allPlayers = {};
 
 const multiplayerBtn = document.getElementById("multiplayer");
 
+// 🌐 --- MULTIJOUEUR OPTIONNEL ---
+let multiplayerActive = false;
+let socket = null;
+let playerId = null;
+let allPlayers = {};
+
+const multiplayerBtn = document.getElementById("multiplayer");
+const chatBtn = document.getElementById("chatBtn");
+const chatBox = document.getElementById("chatBox");
+const chatMessages = document.getElementById("chatMessages");
+const chatInput = document.getElementById("chatInput");
+const sendChat = document.getElementById("sendChat");
+
+chatBtn.style.display = "none"; // 💬 caché tant qu'on n'est pas connecté
+
 multiplayerBtn.onclick = () => {
   // 🔌 Si déjà connecté → déconnexion
   if (multiplayerActive) {
     showStatus("🔌 Déconnexion du multijoueur", "orange");
     socket.close();
     multiplayerActive = false;
-    chatBtn.style.display = "none"; // 💬 cacher le chat à la déconnexion
+    chatBtn.style.display = "none";
     return;
   }
 
@@ -928,22 +943,26 @@ multiplayerBtn.onclick = () => {
   try {
     socket = new WebSocket(url);
 
+    // ✅ Connexion réussie
     socket.onopen = () => {
       multiplayerActive = true;
       showStatus("✅ Connecté au multijoueur !");
-      chatBtn.style.display = "block"; // 💬 affiche le bouton chat
+      chatBtn.style.display = "block"; // 💬 bouton visible
     };
 
+    // ⚠️ Erreur de connexion
     socket.onerror = () => {
       showStatus("❌ Erreur de connexion au serveur", "red");
     };
 
+    // 🔌 Déconnexion
     socket.onclose = () => {
       multiplayerActive = false;
       showStatus("🔌 Déconnecté du serveur", "orange");
-      chatBtn.style.display = "none"; // 💬 cache le chat
+      chatBtn.style.display = "none";
     };
 
+    // 💬 + 🌍 Réception des messages
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
@@ -985,7 +1004,6 @@ multiplayerBtn.onclick = () => {
   }
 };
 
-
 // 🔄 Envoie la position du joueur au serveur
 function sendPlayerPos() {
   if (multiplayerActive && socket && socket.readyState === 1 && playerId) {
@@ -997,39 +1015,21 @@ function sendPlayerPos() {
 }
 setInterval(sendPlayerPos, 100);
 
-// 🔨 Quand tu casses un bloc
+// 🔨 Casser un bloc
 function sendBreakBlock(x, y) {
   if (multiplayerActive && socket && socket.readyState === 1) {
-    socket.send(JSON.stringify({
-      type: "breakBlock",
-      x,
-      y
-    }));
+    socket.send(JSON.stringify({ type: "breakBlock", x, y }));
   }
 }
 
-// 🧱 Quand tu places un bloc
+// 🧱 Placer un bloc
 function sendPlaceBlock(x, y, blockType) {
   if (multiplayerActive && socket && socket.readyState === 1) {
-    socket.send(JSON.stringify({
-      type: "placeBlock",
-      x,
-      y,
-      blockType
-    }));
+    socket.send(JSON.stringify({ type: "placeBlock", x, y, blockType }));
   }
 }
 
 // 💬 --- CHAT MULTIJOUEUR ---
-const chatBtn = document.getElementById("chatBtn");
-chatBtn.style.display = "block"; // bouton visible dès le départ
-
-const chatBox = document.getElementById("chatBox");
-const chatMessages = document.getElementById("chatMessages");
-const chatInput = document.getElementById("chatInput");
-const sendChat = document.getElementById("sendChat");
-
-// 🔁 ouvrir / fermer le chat
 function toggleChat() {
   const visible = chatBox.style.display === "flex";
   chatBox.style.display = visible ? "none" : "flex";
@@ -1037,7 +1037,7 @@ function toggleChat() {
 }
 chatBtn.onclick = toggleChat;
 
-// 🚫 désactiver l'envoi si pas connecté
+// 🚫 Désactiver l'envoi si pas connecté
 sendChat.onclick = () => {
   const msg = chatInput.value.trim();
   if (!multiplayerActive || !socket || socket.readyState !== 1) {
@@ -1055,7 +1055,7 @@ chatInput.addEventListener("keydown", e => {
   if (e.key === "Enter") sendChat.click();
 });
 
-// 📩 réception de messages depuis le serveur
+// 📩 Réception et affichage des messages du chat
 function handleChatMessage(data) {
   const div = document.createElement("div");
   const prefix = (data.id === playerId) ? "🧍‍♂️ Toi" : `👤 ${data.id}`;
@@ -1064,28 +1064,7 @@ function handleChatMessage(data) {
   div.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
   div.style.wordWrap = "break-word";
   chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight; // auto-scroll
-}
-
-// 👂 intégration au handler WebSocket existant
-if (socket) {
-  const oldHandler = socket.onmessage;
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type === "chat") {
-      handleChatMessage(data);
-      return;
-    }
-    if (oldHandler) oldHandler(event);
-  };
-
-  // Quand le socket s’ouvre (connexion réussie)
-  const oldSocketOpen = socket.onopen;
-  socket.onopen = () => {
-    multiplayerActive = true;
-    chatBtn.style.display = "block";
-    if (oldSocketOpen) oldSocketOpen();
-  };
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 // 🎯 Sélection rapide avec touches 1 à 9 — compatible AZERTY / QWERTY / Numpad
