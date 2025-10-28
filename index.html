@@ -1036,7 +1036,11 @@ sendChat.onclick = () => {
     return;
   }
   if (msg.length > 0) {
-    socket.send(JSON.stringify({ type: "chat", message: msg }));
+    socket.send(JSON.stringify({
+      type: "chat",
+      id: playerId || "???", // ✅ ajoute ton identifiant
+      message: msg
+    }));
     chatInput.value = "";
   }
 };
