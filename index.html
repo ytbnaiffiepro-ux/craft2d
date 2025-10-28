@@ -1002,83 +1002,71 @@ function sendPlaceBlock(x, y, blockType) {
 
 // 💬 --- CHAT MULTIJOUEUR ---
 const chatBtn = document.getElementById("chatBtn");
-chatBtn.style.display = "block"; // 👈 bouton visible dès le départ
+chatBtn.style.display = "block"; // bouton visible dès le départ
 
 const chatBox = document.getElementById("chatBox");
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const sendChat = document.getElementById("sendChat");
 
-// 👂 Quand le socket s’ouvre (connexion réussie)
-if (socket) {
-  socket.onopen = () => {
-    multiplayerActive = true;
-    showChatButton(); // ✅ rend le bouton visible quand la connexion réussit
-  };
-}
-
-
+// 🔁 ouvrir / fermer le chat
 function toggleChat() {
   const visible = chatBox.style.display === "flex";
   chatBox.style.display = visible ? "none" : "flex";
   if (!visible) chatInput.focus();
 }
-
 chatBtn.onclick = toggleChat;
 
-// Envoie du message
+// 🚫 désactiver l'envoi si pas connecté
 sendChat.onclick = () => {
   const msg = chatInput.value.trim();
-  if (msg && multiplayerActive && socket?.readyState === 1) {
+  if (!multiplayerActive || !socket || socket.readyState !== 1) {
+    alert("⚠️ Tu n'es pas connecté à un serveur multijoueur !");
+    return;
+  }
+  if (msg.length > 0) {
     socket.send(JSON.stringify({ type: "chat", message: msg }));
     chatInput.value = "";
   }
 };
 
-// Entrée clavier = envoi
+// Entrée = envoi
 chatInput.addEventListener("keydown", e => {
   if (e.key === "Enter") sendChat.click();
 });
 
-// Réception de messages depuis le serveur
+// 📩 réception de messages depuis le serveur
 function handleChatMessage(data) {
   const div = document.createElement("div");
   const prefix = (data.id === playerId) ? "🧍‍♂️ Toi" : `👤 ${data.id}`;
   div.textContent = `${prefix}: ${data.message}`;
   div.style.padding = "4px 6px";
   div.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
+  div.style.wordWrap = "break-word";
   chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight; // ✅ auto-scroll
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-
-// Active le chat seulement en multijoueur
-function showChatButton() {
-  chatBtn.style.display = multiplayerActive ? "block" : "none";
-}
-
-// 👂 Intègre à la gestion WebSocket existante
-// Ajoute après socket.onmessage = (event) => { ... }
+// 👂 intégration au handler WebSocket existant
 if (socket) {
   const oldHandler = socket.onmessage;
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    if (data.type === "chat") handleChatMessage(data);
-    else if (oldHandler) oldHandler(event);
+    if (data.type === "chat") {
+      handleChatMessage(data);
+      return;
+    }
+    if (oldHandler) oldHandler(event);
   };
-}
 
-// Montre le bouton chat quand on se connecte
-const oldSocketOpen = socket?.onopen;
-if (socket) {
+  // Quand le socket s’ouvre (connexion réussie)
+  const oldSocketOpen = socket.onopen;
   socket.onopen = () => {
     multiplayerActive = true;
-    showChatButton();
+    chatBtn.style.display = "block";
     if (oldSocketOpen) oldSocketOpen();
   };
 }
-
-
 
 // 🎯 Sélection rapide avec touches 1 à 9 — compatible AZERTY / QWERTY / Numpad
 document.addEventListener("keydown", (e) => {
