@@ -178,20 +178,20 @@ button,
   z-index: 20;
 ">💬</button>
 
-<!-- 💬 Fenêtre de chat (debug visible à 100%) -->
+<!-- 💬 Fenêtre de chat -->
 <div id="chatBox" style="
   position: fixed;
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
   width: 95%;
-  height: 60vh;              /* 👈 grande hauteur */
+  max-height: 60vh;
   background: rgba(0, 0, 0, 0.85);
   color: white;
   border: 2px solid lime;
   border-radius: 12px;
   font-family: Arial, sans-serif;
-  display: flex;             /* 👈 forcé visible pour tester */
+  display: none;            /* 👈 caché par défaut */
   flex-direction: column;
   z-index: 9999;
 ">
@@ -202,9 +202,8 @@ button,
     font-size: 18px;
     line-height: 1.4;
     background: rgba(255,255,255,0.1);
-  ">
-    <div style="color:lime;">✅ Si tu vois ce texte, le chat est bien affiché !</div>
-  </div>
+  "></div>
+
   <div style="display: flex;">
     <input id="chatInput" type="text" placeholder="Écris un message..."
       style="flex: 1; padding: 10px; font-size: 16px; border: none; outline: none;">
@@ -217,7 +216,6 @@ button,
     ">Envoyer</button>
   </div>
 </div>
-
 
 <!-- 🧩 Menu de craft -->
 <div id="craftMenu" style="display:none;
