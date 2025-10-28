@@ -449,39 +449,54 @@ startMulti.onclick = () => {
     return;
   }
 
-  try {
-    socket = new WebSocket(url);
-    socket.onopen = () => {
-      multiplayerActive = true;
-      showStatus("✅ Connecté au multijoueur !");
-    };
-    socket.onerror = () => {
-      showStatus("❌ Erreur de connexion au serveur", "red");
-    };
-    socket.onclose = () => {
-      multiplayerActive = false;
-      showStatus("🔌 Déconnecté du serveur", "orange");
-    };
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "init") {
-        playerId = data.id;
-        allPlayers = data.players;
-        if (data.world) world = data.world;
-      }
-      if (data.type === "updatePlayers") allPlayers = data.players;
-      if (data.type === "blockChanged") {
-        const { x, y, action, blockType } = data;
-        if (action === "break") world[y][x] = 0;
-        if (action === "place") world[y][x] = blockType;
-      }
-    };
-  } catch (err) {
-    showStatus("❌ Adresse invalide", "red");
-  }
-};
+ try {
+  socket = new WebSocket(url);
 
+  // --- CHAT : branche le gestionnaire avant tout ---
+  attachChatToSocket(socket);
 
+  socket.onopen = () => {
+    multiplayerActive = true;
+    showStatus("✅ Connecté au multijoueur !");
+  };
+
+  socket.onerror = () => {
+    showStatus("❌ Erreur de connexion au serveur", "red");
+  };
+
+  socket.onclose = () => {
+    multiplayerActive = false;
+    showStatus("🔌 Déconnecté du serveur", "orange");
+  };
+
+  // --- Fusion message multijoueur + chat ---
+  socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    // 💬 Gestion du chat (prioritaire)
+    if (data.type === "chat") {
+      handleChatMessage(data);
+      return; // ✅ on arrête ici pour éviter de passer dans la suite
+    }
+
+    // 🧱 Gestion multijoueur normale
+    if (data.type === "init") {
+      playerId = data.id;
+      allPlayers = data.players;
+      if (data.world) world = data.world;
+    }
+
+    if (data.type === "updatePlayers") allPlayers = data.players;
+
+    if (data.type === "blockChanged") {
+      const { x, y, action, blockType } = data;
+      if (action === "break") world[y][x] = 0;
+      if (action === "place") world[y][x] = blockType;
+    }
+  };
+} catch (err) {
+  showStatus("❌ Adresse invalide", "red");
+}
   
 function initHotbar() {
   hotbar.innerHTML = "";
@@ -1015,14 +1030,13 @@ function sendPlaceBlock(x, y, blockType) {
 
 // 💬 --- CHAT MULTIJOUEUR ---
 const chatBtn = document.getElementById("chatBtn");
-chatBtn.style.display = "block"; // bouton visible dès le départ
-
 const chatBox = document.getElementById("chatBox");
 const chatMessages = document.getElementById("chatMessages");
 const chatInput = document.getElementById("chatInput");
 const sendChat = document.getElementById("sendChat");
 
-// 🔁 ouvrir / fermer le chat
+chatBtn.style.display = "none"; // caché tant qu'on n'est pas en multi
+
 function toggleChat() {
   const visible = chatBox.style.display === "flex";
   chatBox.style.display = visible ? "none" : "flex";
@@ -1030,14 +1044,14 @@ function toggleChat() {
 }
 chatBtn.onclick = toggleChat;
 
-// 🚫 désactiver l'envoi si pas connecté
+// Envoi de message
 sendChat.onclick = () => {
   const msg = chatInput.value.trim();
   if (!multiplayerActive || !socket || socket.readyState !== 1) {
-    alert("⚠️ Tu n'es pas connecté à un serveur multijoueur !");
+    showStatus("⚠️ Tu n'es pas connecté à un serveur multijoueur !", "orange");
     return;
   }
-  if (msg.length > 0) {
+  if (msg) {
     socket.send(JSON.stringify({ type: "chat", message: msg }));
     chatInput.value = "";
   }
@@ -1048,22 +1062,21 @@ chatInput.addEventListener("keydown", e => {
   if (e.key === "Enter") sendChat.click();
 });
 
-// 📩 réception de messages depuis le serveur
+// Affichage des messages reçus
 function handleChatMessage(data) {
   const div = document.createElement("div");
-  const prefix = (data.id === playerId) ? "🧍‍♂️ Toi" : `👤 ${data.id}`;
+  const prefix = (data.id === playerId) ? "🧍 Toi" : `👤 ${data.id}`;
   div.textContent = `${prefix}: ${data.message}`;
-  div.style.padding = "6px 8px";
+  div.style.padding = "4px 6px";
   div.style.borderBottom = "1px solid rgba(255,255,255,0.1)";
-  div.style.wordWrap = "break-word";
   chatMessages.appendChild(div);
-  chatMessages.scrollTop = chatMessages.scrollHeight; // auto-scroll
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 👂 intégration au handler WebSocket existant
-if (socket) {
-  const oldHandler = socket.onmessage;
-  socket.onmessage = (event) => {
+// Intégration au WebSocket après connexion
+function attachChatToSocket(sock) {
+  const oldHandler = sock.onmessage;
+  sock.onmessage = (event) => {
     const data = JSON.parse(event.data);
     if (data.type === "chat") {
       handleChatMessage(data);
@@ -1072,12 +1085,11 @@ if (socket) {
     if (oldHandler) oldHandler(event);
   };
 
-  // Quand le socket s’ouvre (connexion réussie)
-  const oldSocketOpen = socket.onopen;
-  socket.onopen = () => {
+  const oldOpen = sock.onopen;
+  sock.onopen = () => {
     multiplayerActive = true;
-    chatBtn.style.display = "block";
-    if (oldSocketOpen) oldSocketOpen();
+    chatBtn.style.display = "block"; // ✅ bouton visible quand connecté
+    if (oldOpen) oldOpen();
   };
 }
 
