@@ -411,9 +411,12 @@ for (const id in textureNames) {
 let player = { x: WORLD_WIDTH * TILE_SIZE / 2, y: TILE_SIZE * (baseGround - 6), w: 30, h: 40, vx: 0, vy: 0, onGround: false };
 const gravity = 0.8, speed = 4, jumpForce = -12;
 let paused = false;
+let chatOpen = false; // état si la fenêtre de chat est ouverte (bloque le mouvement)
 let inventory = {};
 let selectedType = null;
 let targetBlock = null;
+
+  
 
 // 🎒 Inventaire : 9 slots fixes, max 99 par slot
 const HOTBAR_SLOTS = 9;
@@ -890,13 +893,16 @@ if (multiplayerActive) {
 
 // 🎮 Contrôles
 document.addEventListener("keydown", e => {
-  if (paused) return;
+  // 🚫 Pas de mouvement si jeu en pause OU si chat ouvert
+  if (paused || chatOpen) return;
+
   if (e.key === "ArrowLeft" || e.key === "q") player.vx = -speed;
   if (e.key === "ArrowRight" || e.key === "d") player.vx = speed;
   if ((e.key === "ArrowUp" || e.key === " " || e.key === "z") && player.onGround) {
     player.vy = jumpForce; player.onGround = false;
   }
 });
+
   
 document.addEventListener("keyup", e => {
   if (["ArrowLeft", "ArrowRight", "q", "d"].includes(e.key)) player.vx = 0;
@@ -1021,29 +1027,49 @@ function sendPlaceBlock(x, y, blockType) {
 }
 
 // 💬 --- CHAT MULTIJOUEUR ---
+// 💬 Fonction d'ouverture / fermeture du chat
 function toggleChat() {
   const visible = chatBox.style.display === "flex";
   chatBox.style.display = visible ? "none" : "flex";
-  if (!visible) chatInput.focus();
-}
-chatBtn.onclick = toggleChat;
 
-// 🚫 Désactiver l'envoi si pas connecté
-sendChat.onclick = () => {
-  const msg = chatInput.value.trim();
-  if (!multiplayerActive || !socket || socket.readyState !== 1) {
-    alert("⚠️ Tu n'es pas connecté à un serveur multijoueur !");
-    return;
+  // ✅ met à jour l'état global
+  chatOpen = !visible;
+
+  if (chatOpen) {
+    chatInput.focus();
+  } else {
+    chatInput.blur();
   }
-  if (msg.length > 0) {
-    socket.send(JSON.stringify({
-      type: "chat",
-      id: playerId || "???", // ✅ ajoute ton identifiant
-      message: msg
-    }));
-    chatInput.value = "";
+}
+
+// 🖱️ Bouton pour ouvrir/fermer le chat
+chatBtn.onclick = toggleChat;
+// Ouvrir/fermer le chat avec la touche T (PC)
+document.addEventListener("keydown", (e) => {
+  // si on est dans un champ texte, on ne fait rien ici
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+
+  if (e.key.toLowerCase() === "t") {
+    e.preventDefault();
+    toggleChat();
   }
-};
+});
+
+
+// 💬 Ouvrir/fermer le chat avec la touche T (ordinateur)
+document.addEventListener("keydown", (e) => {
+  // si on tape déjà dans un champ texte, on ne fait rien
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
+
+  // touche T (majuscule ou minuscule)
+  if (e.key.toLowerCase() === "t") {
+    e.preventDefault();
+    toggleChat();
+  }
+});
+
 
 // Entrée = envoi
 chatInput.addEventListener("keydown", e => {
