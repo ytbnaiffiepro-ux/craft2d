@@ -1045,12 +1045,6 @@ function toggleChat() {
 // 🖱️ Bouton pour ouvrir/fermer le chat
 chatBtn.onclick = toggleChat;
 
-// 💬 Ouvrir le chat avec la touche T, fermer avec Échap (ordinateur)
-document.addEventListener("keydown", (e) => {
-  // si on tape déjà dans un champ texte, on ne fait rien
-  const ae = document.activeElement;
-  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) return;
-
   // touche T → ouvre le chat seulement si pas déjà ouvert
   if (e.key.toLowerCase() === "t" && chatBox.style.display !== "flex") {
     e.preventDefault();
