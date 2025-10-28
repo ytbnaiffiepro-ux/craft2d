@@ -928,32 +928,28 @@ multiplayerBtn.onclick = () => {
   try {
     socket = new WebSocket(url);
 
-    // ✅ Connexion réussie
     socket.onopen = () => {
       multiplayerActive = true;
       showStatus("✅ Connecté au multijoueur !");
       chatBtn.style.display = "block"; // 💬 affiche le bouton chat
     };
 
-    // ⚠️ Erreur de connexion
     socket.onerror = () => {
       showStatus("❌ Erreur de connexion au serveur", "red");
     };
 
-    // 🔌 Déconnexion
     socket.onclose = () => {
       multiplayerActive = false;
       showStatus("🔌 Déconnecté du serveur", "orange");
       chatBtn.style.display = "none"; // 💬 cache le chat
     };
 
-    // 💬 + 🌍 Réception des messages
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
 
       // 💬 --- CHAT ---
       if (data.type === "chat") {
-        handleChatMessage(data); // ✅ ajoute le message dans la fenêtre
+        handleChatMessage(data);
         return;
       }
 
@@ -978,44 +974,17 @@ multiplayerBtn.onclick = () => {
         if (action === "break") world[y][x] = 0;
         if (action === "place") world[y][x] = blockType;
       }
+
+      // 🌍 --- Monde complet renvoyé par le serveur (optionnel)
+      if (data.type === "world") {
+        world = data.world;
+      }
     };
   } catch (err) {
     showStatus("❌ Adresse invalide", "red");
   }
 };
 
-
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-
-    // 🧱 Initialisation : ID, joueurs et monde du serveur
-    if (data.type === "init") {
-      playerId = data.id;
-      allPlayers = data.players;
-      if (data.world) {
-        world = data.world;
-        console.log("🌍 Monde reçu du serveur");
-      }
-    }
-
-    // 👥 Mise à jour des positions des autres joueurs
-    if (data.type === "updatePlayers") {
-      allPlayers = data.players;
-    }
-
-    // 💥 Un bloc a été cassé ou placé
-    if (data.type === "blockChanged") {
-      const { x, y, action, blockType } = data;
-      if (action === "break") world[y][x] = 0;
-      if (action === "place") world[y][x] = blockType;
-    }
-
-    // 🌍 Le serveur renvoie le monde complet (optionnel)
-    if (data.type === "world") {
-      world = data.world;
-    }
-  };
-};
 
 // 🔄 Envoie la position du joueur au serveur
 function sendPlayerPos() {
