@@ -430,7 +430,7 @@ startMulti.onclick = () => {
   showStatus("Connexion multijoueur...", "lightblue");
 
   // Lance la procédure multijoueur existante
-  const url = prompt("Entre l’adresse du serveur WebSocket :", "wss://abcd1234.ngrok-free.app");
+  const url = prompt("Entre l’adresse du serveur :", "");
   if (!url) {
     showStatus("Mode solo activé par défaut 🎮", "orange");
     return;
