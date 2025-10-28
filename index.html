@@ -186,19 +186,15 @@ button,
   transform: translateX(-50%);
   width: 90%;
   max-width: 600px;
-  max-height: 60vh;
-  background: rgba(0,0,0,0.85);
+  height: 60vh; /* ✅ hauteur fixe */
+  background: rgba(0, 0, 0, 0.85);
   color: white;
   border-radius: 12px;
   font-family: Arial, sans-serif;
-  display: none;               /* 👈 caché au départ */
-  flex-direction: column;      /* ✅ disposition verticale */
-  justify-content: space-between;
+  display: none;
+  flex-direction: column;
   z-index: 9999;
-  overflow: hidden;
 ">
-
-  <!-- zone des messages -->
   <div id="chatMessages" style="
     flex: 1;
     overflow-y: auto;
@@ -207,10 +203,7 @@ button,
     line-height: 1.4;
     word-wrap: break-word;
     background: rgba(255,255,255,0.1);
-    border-radius: 12px 12px 0 0;
   "></div>
-
-  <!-- zone d'entrée du texte -->
   <div style="
     display: flex;
     border-top: 1px solid rgba(255,255,255,0.3);
@@ -236,7 +229,6 @@ button,
     ">Envoyer</button>
   </div>
 </div>
-
 
 <!-- 🧩 Menu de craft -->
 <div id="craftMenu" style="display:none;
