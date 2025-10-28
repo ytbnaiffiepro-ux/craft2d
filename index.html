@@ -1047,31 +1047,33 @@ chatBtn.onclick = () => toggleChat(!chatOpen);
 // 💬 Ouvrir le chat avec T, fermer avec Échap
 document.addEventListener("keydown", (e) => {
   const ae = document.activeElement;
+  const typing = ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
 
-  // Si on tape dans un champ texte
-  if (ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable)) {
-    // Si on appuie sur Échap → fermer le chat
-    if (e.key === "Escape") {
-      e.preventDefault();
-      toggleChat(false);
-    }
+  // Si on appuie sur Échap → fermer le chat (même si on écrit)
+  if (e.key === "Escape" && chatBox.style.display === "flex") {
+    e.preventDefault();
+    toggleChat(false);
     return;
   }
+
+  // Si on écrit déjà dans le chat → ne rien faire pour T
+  if (typing) return;
 
   // T → ouvrir le chat seulement si pas déjà ouvert
   if (e.key.toLowerCase() === "t" && chatBox.style.display !== "flex") {
     e.preventDefault();
     toggleChat(true);
+    return;
   }
 
-  // Échap → fermer si ouvert
-  if (e.key === "Escape" && chatBox.style.display === "flex") {
+  // Entrée → envoyer le message si chat ouvert
+  if (e.key === "Enter" && chatOpen) {
     e.preventDefault();
-    toggleChat(false);
+    sendCurrentChatMessage();
   }
 });
 
-// 💬 Entrée = envoi du message
+// 💬 Entrée = envoi du message quand on tape dans le champ
 chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
@@ -1097,7 +1099,6 @@ function sendCurrentChatMessage() {
 
   chatInput.value = "";
 }
-
 
 // 📩 Réception et affichage des messages du chat
 function handleChatMessage(data) {
